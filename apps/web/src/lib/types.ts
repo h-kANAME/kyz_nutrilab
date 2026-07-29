@@ -36,6 +36,9 @@ export type NotificationPrefs = {
   remind_meals: boolean;
   remind_training: boolean;
   remind_weight: boolean;
+  meal_times: string[];
+  training_time: string;
+  weight_time: string;
 };
 
 export type NotificationStatus = {

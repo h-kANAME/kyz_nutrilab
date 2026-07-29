@@ -15,7 +15,7 @@ import {
   sendPushToUser,
   upsertNotificationPrefs,
 } from '../services/notifications.js';
-import { REMINDER_SLOTS, NOTIF_TZ } from '../services/notificationJob.js';
+import { NOTIF_TZ, slotsFromPrefs } from '../services/notificationJob.js';
 
 export function notificationRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsync {
   return async (app) => {
@@ -23,6 +23,7 @@ export function notificationRoutes(auth: AuthHelpers, db: Db, env: Env): Fastify
 
     app.get('/notifications/status', async (request) => {
       const prefs = getNotificationPrefs(db, request.user!.id);
+      const slots = slotsFromPrefs(prefs);
       return {
         configured: isPushConfigured(env),
         publicKey: isPushConfigured(env) ? env.VAPID_PUBLIC_KEY : null,
@@ -30,17 +31,17 @@ export function notificationRoutes(auth: AuthHelpers, db: Db, env: Env): Fastify
         prefs,
         schedule: {
           timezone: NOTIF_TZ,
-          meals: REMINDER_SLOTS.meals.map((s) => ({
+          meals: slots.meals.map((s) => ({
             time: `${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}`,
             body: s.body,
           })),
           training: {
-            time: `${String(REMINDER_SLOTS.training.hour).padStart(2, '0')}:${String(REMINDER_SLOTS.training.minute).padStart(2, '0')}`,
-            body: REMINDER_SLOTS.training.body,
+            time: `${String(slots.training.hour).padStart(2, '0')}:${String(slots.training.minute).padStart(2, '0')}`,
+            body: slots.training.body,
           },
           weight: {
-            time: `${String(REMINDER_SLOTS.weight.hour).padStart(2, '0')}:${String(REMINDER_SLOTS.weight.minute).padStart(2, '0')}`,
-            body: REMINDER_SLOTS.weight.body,
+            time: `${String(slots.weight.hour).padStart(2, '0')}:${String(slots.weight.minute).padStart(2, '0')}`,
+            body: slots.weight.body,
           },
           tickHint: 'Mission Control cada 15 min (UTC)',
         },

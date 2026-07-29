@@ -75,12 +75,12 @@ La lógica vive en el API; el disparo periódico en [Centro de Control](https://
 | Cron (UTC) | `*/15 * * * *` |
 | Comando | `exec service=nutrilabapi match=nutrilab -- node dist/jobs/runNotifications.js` |
 
-Criterios (hora **America/Argentina/Buenos_Aires**):
+Criterios (hora **America/Argentina/Buenos_Aires**, configurables en Ajustes):
 
-| Qué | Cuándo | Condición |
-|-----|--------|-----------|
+| Qué | Default | Condición |
+|-----|---------|-----------|
 | Peso | 09:00 | Sin peso cargado hoy |
-| Comidas | 10:00 / 13:30 / 21:00 | Menos comidas de las esperadas (1 / 2 / 3) |
+| Comidas | 08:00 / 13:00 / 17:00 / 21:00 (Desayuno·Almuerzo·Merienda·Cena) | Menos comidas de las esperadas (1–4) |
 | Entrenamiento | 21:00 | Hay actividad en el plan y no marcaste sí/no |
 
 Dedupe: un envío por usuario/día/slot. Probar a mano:

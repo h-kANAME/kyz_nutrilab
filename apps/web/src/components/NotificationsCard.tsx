@@ -11,15 +11,36 @@ import type { NotificationPrefs, NotificationStatus } from '../lib/types';
 
 type Props = { toast: (msg: string) => void };
 
+const DEFAULT_PREFS: NotificationPrefs = {
+  enabled: false,
+  remind_meals: true,
+  remind_training: true,
+  remind_weight: true,
+  meal_times: ['08:00', '13:00', '17:00', '21:00'],
+  training_time: '21:00',
+  weight_time: '09:00',
+};
+
+const MEAL_LABELS = ['Desayuno', 'Almuerzo', 'Merienda', 'Cena'] as const;
+
 export function NotificationsCard({ toast }: Props) {
   const [status, setStatus] = useState<NotificationStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [localSub, setLocalSub] = useState(false);
+  const [draft, setDraft] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const supported = pushSupported();
 
   const load = async () => {
     const s = await api.getNotificationStatus();
     setStatus(s);
+    setDraft({
+      ...DEFAULT_PREFS,
+      ...s.prefs,
+      meal_times:
+        s.prefs.meal_times?.length === 4
+          ? [...s.prefs.meal_times]
+          : [...DEFAULT_PREFS.meal_times],
+    });
     if (supported) {
       const sub = await getExistingSubscription();
       setLocalSub(Boolean(sub));
@@ -39,13 +60,20 @@ export function NotificationsCard({ toast }: Props) {
     );
   }
 
-  const prefs = status.prefs;
-
   const patchPrefs = async (next: NotificationPrefs) => {
     setBusy(true);
     try {
       const r = await api.putNotificationPrefs(next);
+      setDraft({
+        ...DEFAULT_PREFS,
+        ...r.prefs,
+        meal_times:
+          r.prefs.meal_times?.length === 4
+            ? [...r.prefs.meal_times]
+            : [...DEFAULT_PREFS.meal_times],
+      });
       setStatus((prev) => (prev ? { ...prev, prefs: r.prefs } : prev));
+      toast('Horarios guardados');
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -63,6 +91,14 @@ export function NotificationsCard({ toast }: Props) {
       const sub = await subscribePush(status.publicKey);
       const r = await api.subscribePush(subscriptionToJson(sub));
       setLocalSub(true);
+      setDraft({
+        ...DEFAULT_PREFS,
+        ...r.prefs,
+        meal_times:
+          r.prefs.meal_times?.length === 4
+            ? [...r.prefs.meal_times]
+            : [...DEFAULT_PREFS.meal_times],
+      });
       setStatus((prev) =>
         prev
           ? { ...prev, prefs: r.prefs, subscriptionCount: r.subscriptionCount }
@@ -80,10 +116,16 @@ export function NotificationsCard({ toast }: Props) {
     setBusy(true);
     try {
       const endpoint = await unsubscribePush();
-      const r = await api.unsubscribePush(
-        endpoint ? { endpoint } : { all: true },
-      );
+      const r = await api.unsubscribePush(endpoint ? { endpoint } : { all: true });
       setLocalSub(false);
+      setDraft({
+        ...DEFAULT_PREFS,
+        ...r.prefs,
+        meal_times:
+          r.prefs.meal_times?.length === 4
+            ? [...r.prefs.meal_times]
+            : [...DEFAULT_PREFS.meal_times],
+      });
       setStatus((prev) =>
         prev
           ? { ...prev, prefs: r.prefs, subscriptionCount: r.subscriptionCount }
@@ -110,39 +152,15 @@ export function NotificationsCard({ toast }: Props) {
   };
 
   const active = localSub || status.subscriptionCount > 0;
+  const tzLabel = status.schedule?.timezone?.replace('America/', '') ?? 'Argentina/Buenos_Aires';
 
   return (
     <div className="card">
       <div className="card-title">Notificaciones</div>
       <p className="field-hint">
-        Recordatorios en Android (Chrome / PWA) para comidas, entrenamiento y peso. Requiere HTTPS
-        o localhost.
+        Recordatorios en Android (Chrome / PWA). Horarios en {tzLabel}. Solo se envía si falta el
+        dato.
       </p>
-
-      {status.schedule && (
-        <div className="notif-schedule">
-          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-            Horarios ({status.schedule.timezone.replace('America/', '')})
-          </div>
-          <ul className="notif-schedule-list">
-            <li>
-              <strong>Peso</strong> {status.schedule.weight.time}
-            </li>
-            {status.schedule.meals.map((m) => (
-              <li key={m.time}>
-                <strong>Comidas</strong> {m.time}
-              </li>
-            ))}
-            <li>
-              <strong>Entrenamiento</strong> {status.schedule.training.time}
-              <span className="muted"> · solo si hay plan ese día</span>
-            </li>
-          </ul>
-          <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-            Solo se envía si falta el dato. Disparo vía Mission Control.
-          </p>
-        </div>
-      )}
 
       {!supported && (
         <p className="muted" style={{ marginBottom: 0 }}>
@@ -189,32 +207,90 @@ export function NotificationsCard({ toast }: Props) {
           )}
 
           <div className="notif-toggles">
-            {(
-              [
-                ['remind_meals', 'Comidas'],
-                ['remind_training', 'Entrenamiento'],
-                ['remind_weight', 'Peso'],
-              ] as const
-            ).map(([key, label]) => (
-              <label className="notif-toggle" key={key}>
+            <label className="notif-row">
+              <input
+                type="checkbox"
+                checked={draft.remind_weight}
+                disabled={busy || !active}
+                onChange={(e) => setDraft({ ...draft, remind_weight: e.target.checked })}
+              />
+              <span className="notif-row-label">Peso</span>
+              <input
+                type="time"
+                className="notif-time"
+                value={draft.weight_time}
+                disabled={busy || !active || !draft.remind_weight}
+                onChange={(e) => setDraft({ ...draft, weight_time: e.target.value })}
+              />
+            </label>
+
+            <div className="notif-block">
+              <label className="notif-row">
                 <input
                   type="checkbox"
-                  checked={prefs[key]}
+                  checked={draft.remind_meals}
                   disabled={busy || !active}
-                  onChange={(e) =>
-                    void patchPrefs({ ...prefs, [key]: e.target.checked, enabled: active })
-                  }
+                  onChange={(e) => setDraft({ ...draft, remind_meals: e.target.checked })}
                 />
-                <span>{label}</span>
+                <span className="notif-row-label">Comidas</span>
+                <span className="notif-time-slot" aria-hidden="true" />
               </label>
-            ))}
+              {draft.meal_times.map((t, i) => (
+                <div className="notif-row notif-row-sub" key={`meal-${i}`}>
+                  <span className="notif-check-slot" aria-hidden="true" />
+                  <span className="notif-row-label muted">{MEAL_LABELS[i] ?? `#${i + 1}`}</span>
+                  <input
+                    type="time"
+                    className="notif-time"
+                    value={t}
+                    disabled={busy || !active || !draft.remind_meals}
+                    onChange={(e) => {
+                      const meal_times = [...draft.meal_times];
+                      meal_times[i] = e.target.value;
+                      setDraft({ ...draft, meal_times });
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <label className="notif-row">
+              <input
+                type="checkbox"
+                checked={draft.remind_training}
+                disabled={busy || !active}
+                onChange={(e) => setDraft({ ...draft, remind_training: e.target.checked })}
+              />
+              <span className="notif-row-label">Entrenamiento</span>
+              <input
+                type="time"
+                className="notif-time"
+                value={draft.training_time}
+                disabled={busy || !active || !draft.remind_training}
+                onChange={(e) => setDraft({ ...draft, training_time: e.target.value })}
+              />
+            </label>
           </div>
+
+          <p className="muted" style={{ fontSize: 11, margin: '8px 0 0' }}>
+            Entrenamiento solo si hay actividad en el plan ese día.
+          </p>
+
+          <button
+            type="button"
+            className="primary"
+            style={{ width: '100%', marginTop: 12 }}
+            disabled={busy || !active}
+            onClick={() => void patchPrefs({ ...draft, enabled: active })}
+          >
+            Guardar preferencias
+          </button>
 
           {active && (
             <button
               type="button"
               className="ghost"
-              style={{ width: '100%', marginTop: 12 }}
+              style={{ width: '100%', marginTop: 8 }}
               disabled={busy}
               onClick={() => void sendTest()}
             >

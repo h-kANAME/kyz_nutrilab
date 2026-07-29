@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import {
   DIAS,
+  MEAL_TYPES,
   addDays,
+  formatPlanDay,
   formatWeekLabel,
   todayKey,
   weekEnd,
@@ -10,9 +12,20 @@ import {
   weightedQualityAvg,
   qualityTone,
   type DayLog,
+  type Meal,
 } from '../lib/types';
 
 type Props = { toast: (msg: string) => void };
+
+function sortMeals(meals: Meal[]): Meal[] {
+  const order = new Map(MEAL_TYPES.map((t, i) => [t, i]));
+  return [...meals].sort(
+    (a, b) =>
+      (order.get(a.meal_type as (typeof MEAL_TYPES)[number]) ?? 99) -
+        (order.get(b.meal_type as (typeof MEAL_TYPES)[number]) ?? 99) ||
+      a.created_at.localeCompare(b.created_at),
+  );
+}
 
 export function SemanaTab({ toast }: Props) {
   const [mode, setMode] = useState<'week' | 'range'>('week');
@@ -20,6 +33,7 @@ export function SemanaTab({ toast }: Props) {
   const [from, setFrom] = useState(() => weekStart(todayKey()));
   const [to, setTo] = useState(() => weekEnd(weekStart(todayKey())));
   const [days, setDays] = useState<DayLog[]>([]);
+  const [openDays, setOpenDays] = useState<Set<string>>(() => new Set());
   const touchX = useRef<number | null>(null);
 
   const rangeFrom = mode === 'week' ? anchor : from;
@@ -31,11 +45,21 @@ export function SemanaTab({ toast }: Props) {
       return;
     }
     try {
-      const { days } = await api.getDays(rangeFrom, rangeTo);
-      setDays(days);
+      const { days: next } = await api.getDays(rangeFrom, rangeTo);
+      setDays(next);
+      setOpenDays(new Set(next.filter((d) => d.meals.length > 0).map((d) => d.date)));
     } catch (e) {
       toast((e as Error).message);
     }
+  };
+
+  const toggleDay = (date: string) => {
+    setOpenDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -122,18 +146,70 @@ export function SemanaTab({ toast }: Props) {
           const goal = d.goal ?? 1;
           const pct = Math.min((cons / goal) * 100, 100);
           const q = d.quality_avg ?? weightedQualityAvg(d.meals);
+          const activity = d.plan ? formatPlanDay(d.plan) : null;
+          const meta: string[] = [];
+          if (d.training === true) meta.push('Entrenó');
+          if (d.training === false) meta.push('Sin entrenamiento');
+          if (d.weight != null) meta.push(`${d.weight} kg`);
+          const open = openDays.has(d.date);
+          const meals = sortMeals(d.meals);
           return (
-            <div className="week-row" key={d.date}>
-              <div className="week-day">{DIAS[dow]}</div>
-              <div className="week-bar-track">
-                <div className="week-bar-fill" style={{ width: `${pct}%` }} />
-              </div>
-              <div className="week-kcal mono">
-                {Math.round(cons)}/{Math.round(goal)}
-                {q != null && (
-                  <span className={`quality-mini tone-${qualityTone(q)}`}> · {q}</span>
-                )}
-              </div>
+            <div className={`week-day-block${open ? ' open' : ''}`} key={d.date}>
+              <button
+                type="button"
+                className="week-day-head"
+                aria-expanded={open}
+                onClick={() => toggleDay(d.date)}
+              >
+                <span className={`chevron${open ? ' open' : ''}`} aria-hidden />
+                <div className="week-row">
+                  <div className="week-day">{DIAS[dow]}</div>
+                  <div className="week-bar-track">
+                    <div className="week-bar-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="week-kcal mono">
+                    {Math.round(cons)}/{Math.round(goal)}
+                    {q != null && (
+                      <span className={`quality-mini tone-${qualityTone(q)}`}> · {q}</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+              {(activity || meta.length > 0) && (
+                <div className="week-activity">
+                  {activity && <span className="week-activity-plan">{activity}</span>}
+                  {meta.map((m) => (
+                    <span className="week-activity-meta" key={m}>
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {open && (
+                <div className="week-meals">
+                  {meals.length === 0 ? (
+                    <p className="muted week-meals-empty">Sin comidas cargadas</p>
+                  ) : (
+                    meals.map((m) => (
+                      <div className="week-meal" key={m.id}>
+                        <div className="week-meal-main">
+                          <strong>{m.meal_type}</strong>
+                          <span className="muted">{m.label}</span>
+                          {m.quality_score != null && (
+                            <span
+                              className={`quality-mini tone-${qualityTone(m.quality_score)}`}
+                              title={m.quality_note ?? undefined}
+                            >
+                              {m.quality_score}/5
+                            </span>
+                          )}
+                        </div>
+                        <span className="mono week-meal-kcal">{Math.round(m.kcal)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
