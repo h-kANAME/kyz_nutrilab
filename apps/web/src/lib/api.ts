@@ -33,6 +33,7 @@ export const api = {
   getSettings: () =>
     request<{
       settings: import('./types').Settings;
+      activities?: import('./types').UserActivity[];
       derived: {
         tmb: number;
         base: number;
@@ -45,6 +46,7 @@ export const api = {
   putSettings: (settings: import('./types').Settings) =>
     request<{
       settings: import('./types').Settings;
+      activities?: import('./types').UserActivity[];
       derived: {
         tmb: number;
         base: number;
@@ -54,15 +56,56 @@ export const api = {
       };
       llmProviders: import('./types').LlmProviderInfo[];
     }>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  completeOnboarding: (settings: import('./types').Settings) =>
+    request<{
+      settings: import('./types').Settings;
+      derived: {
+        tmb: number;
+        base: number;
+        floor: number;
+        formula?: import('./formula').FormulaBreakdown;
+        today_activity_keys?: string[];
+      };
+      llmProviders: import('./types').LlmProviderInfo[];
+    }>('/api/settings/onboarding', { method: 'POST', body: JSON.stringify(settings) }),
   getPlan: () =>
     request<{
       days: import('./types').PlanDay[];
+      activities?: import('./types').UserActivity[];
       derived: { tmb: number; base: number; floor: number };
     }>('/api/plan'),
   putPlan: (days: import('./types').PlanDay[]) =>
-    request<{ days: import('./types').PlanDay[] }>('/api/plan', {
+    request<{
+      days: import('./types').PlanDay[];
+      activities?: import('./types').UserActivity[];
+    }>('/api/plan', {
       method: 'PUT',
       body: JSON.stringify({ days }),
+    }),
+  completePlanOnboarding: (days: import('./types').PlanDay[]) =>
+    request<{
+      settings: import('./types').Settings;
+      days: import('./types').PlanDay[];
+      activities: import('./types').UserActivity[];
+    }>('/api/plan/onboarding', {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    }),
+  getActivities: () =>
+    request<{ activities: import('./types').UserActivity[] }>('/api/activities'),
+  createActivity: (body: { label: string; kcal: number }) =>
+    request<{
+      activity: import('./types').UserActivity;
+      activities: import('./types').UserActivity[];
+    }>('/api/activities', { method: 'POST', body: JSON.stringify(body) }),
+  updateActivity: (id: string, body: { label?: string; kcal?: number }) =>
+    request<{
+      activity: import('./types').UserActivity;
+      activities: import('./types').UserActivity[];
+    }>(`/api/activities/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteActivity: (id: string) =>
+    request<{ activities: import('./types').UserActivity[] }>(`/api/activities/${id}`, {
+      method: 'DELETE',
     }),
   getDay: (date: string) =>
     request<{ day: import('./types').DayLog }>(`/api/days/${date}`),

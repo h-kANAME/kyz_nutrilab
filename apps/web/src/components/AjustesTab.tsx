@@ -31,6 +31,7 @@ function InfoButton({ label, onClick }: { label: string; onClick: () => void }) 
 export function AjustesTab({ toast, onTheme }: Props) {
   const { user, logout } = useAuth();
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [activities, setActivities] = useState<import('../lib/types').UserActivity[]>([]);
   const [providers, setProviders] = useState<LlmProviderInfo[]>([]);
   const [todayKeys, setTodayKeys] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -47,6 +48,7 @@ export function AjustesTab({ toast, onTheme }: Props) {
           activity_factor: r.settings.activity_factor ?? 1.2,
           llm_provider: r.settings.llm_provider || 'gemini',
         });
+        setActivities(r.activities ?? []);
         setProviders(r.llmProviders ?? []);
         setTodayKeys(r.derived.today_activity_keys ?? []);
         onTheme(r.settings.theme);
@@ -60,7 +62,7 @@ export function AjustesTab({ toast, onTheme }: Props) {
     setSettings({ ...settings, [key]: value });
   };
 
-  const formula = computeLocalFormula(settings, todayKeys);
+  const formula = computeLocalFormula(settings, todayKeys, activities);
   const paceKg = settings.deficit / 7700;
   const suggestedMin = Math.max(
     settings.sexo === 'F' ? 1500 : 1800,
@@ -73,11 +75,15 @@ export function AjustesTab({ toast, onTheme }: Props) {
   const save = async () => {
     setSaving(true);
     try {
-      const { settings: next, llmProviders, derived } = await api.putSettings(settings);
+      const payload = { ...settings };
+      delete (payload as { onboarding_done?: boolean }).onboarding_done;
+      delete (payload as { plan_onboarding_done?: boolean }).plan_onboarding_done;
+      const { settings: next, llmProviders, derived, activities: acts } = await api.putSettings(payload);
       setSettings({
         ...next,
         activity_factor: next.activity_factor ?? 1.2,
       });
+      if (acts) setActivities(acts);
       if (llmProviders) setProviders(llmProviders);
       if (derived.today_activity_keys) setTodayKeys(derived.today_activity_keys);
       onTheme(next.theme);
@@ -351,7 +357,7 @@ export function AjustesTab({ toast, onTheme }: Props) {
       <div className="card">
         <div className="card-title">Entrenamientos</div>
         <p className="field-hint">
-          Kcal que suman los días marcados en Plan. Si no entrenás ese día, no se suman.
+          Kcal por sesión de las etiquetas base. Bici y actividades custom se gestionan en Plan.
         </p>
         <div className="field" style={{ marginTop: 0 }}>
           <label>Gym por sesión</label>
@@ -377,6 +383,20 @@ export function AjustesTab({ toast, onTheme }: Props) {
             onChange={(e) => set('kcal_walk', Number(e.target.value))}
           />
         </div>
+        {activities.filter((a) => !a.is_builtin || a.key === 'kcal_bike').length > 0 && (
+          <div className="activity-edit-list" style={{ marginTop: 12 }}>
+            {activities
+              .filter((a) => a.key === 'kcal_bike' || !a.is_builtin)
+              .map((a) => (
+                <div className="activity-edit-row" key={a.id}>
+                  <div className="activity-edit-meta">
+                    <strong>{a.label}</strong>
+                    <span className="muted">{a.kcal} kcal</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       <div className="card">

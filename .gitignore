@@ -16,3 +16,4 @@ apps/web/dev-dist/
 apps/api/data/
 apps/api/uploads/
 tracker-plan.html
+apps/api/scripts/out/

@@ -1,0 +1,258 @@
+[
+  {
+    "id": "cafe-leche-desc",
+    "mealType": "Extra",
+    "text": "Café con leche descremada",
+    "gold_kcal": 55,
+    "tol_kcal": 10,
+    "gold_quality": 4
+  },
+  {
+    "id": "cafe-solo",
+    "mealType": "Extra",
+    "text": "Un café solo",
+    "gold_kcal": 2,
+    "tol_kcal": 5,
+    "gold_quality": 5
+  },
+  {
+    "id": "coca-330",
+    "mealType": "Extra",
+    "text": "Coca-Cola 330 ml",
+    "gold_kcal": 140,
+    "tol_kcal": 15,
+    "gold_quality": 1
+  },
+  {
+    "id": "gaseosa-zero",
+    "mealType": "Extra",
+    "text": "Gaseosa zero 350 ml",
+    "gold_kcal": 2,
+    "tol_kcal": 5,
+    "gold_quality": 4
+  },
+  {
+    "id": "huevo-duro",
+    "mealType": "Desayuno",
+    "text": "Un huevo duro",
+    "gold_kcal": 78,
+    "tol_kcal": 12,
+    "gold_quality": 4
+  },
+  {
+    "id": "clara-100",
+    "mealType": "Desayuno",
+    "text": "Clara de huevo 100 g",
+    "gold_kcal": 52,
+    "tol_kcal": 10,
+    "gold_quality": 5
+  },
+  {
+    "id": "pechuga-plancha",
+    "mealType": "Almuerzo",
+    "text": "Pechuga de pollo a la plancha",
+    "gold_kcal": 165,
+    "tol_kcal": 20,
+    "gold_quality": 5
+  },
+  {
+    "id": "milanesa-frita",
+    "mealType": "Almuerzo",
+    "text": "Milanesa de pollo frita con pan rallado",
+    "gold_kcal": 380,
+    "tol_kcal": 40,
+    "gold_quality": 2
+  },
+  {
+    "id": "atun-natural",
+    "mealType": "Almuerzo",
+    "text": "Atún al natural",
+    "gold_kcal": 110,
+    "tol_kcal": 20,
+    "gold_quality": 5
+  },
+  {
+    "id": "salmon-plancha",
+    "mealType": "Cena",
+    "text": "Salmón a la plancha",
+    "gold_kcal": 280,
+    "tol_kcal": 30,
+    "gold_quality": 4
+  },
+  {
+    "id": "arroz-blanco",
+    "mealType": "Almuerzo",
+    "text": "Arroz blanco cocido",
+    "gold_kcal": 195,
+    "tol_kcal": 25,
+    "gold_quality": 3
+  },
+  {
+    "id": "quinoa",
+    "mealType": "Almuerzo",
+    "text": "Quinoa cocida",
+    "gold_kcal": 180,
+    "tol_kcal": 25,
+    "gold_quality": 4
+  },
+  {
+    "id": "avena-40",
+    "mealType": "Desayuno",
+    "text": "Avena 40 g",
+    "gold_kcal": 150,
+    "tol_kcal": 15,
+    "gold_quality": 4
+  },
+  {
+    "id": "pan-2-fetas",
+    "mealType": "Desayuno",
+    "text": "Dos fetas de pan lactal",
+    "gold_kcal": 140,
+    "tol_kcal": 20,
+    "gold_quality": 2
+  },
+  {
+    "id": "medialuna",
+    "mealType": "Desayuno",
+    "text": "Una medialuna",
+    "gold_kcal": 230,
+    "tol_kcal": 30,
+    "gold_quality": 1
+  },
+  {
+    "id": "banana",
+    "mealType": "Merienda",
+    "text": "Una banana",
+    "gold_kcal": 105,
+    "tol_kcal": 20,
+    "gold_quality": 3
+  },
+  {
+    "id": "manzana",
+    "mealType": "Merienda",
+    "text": "Una manzana",
+    "gold_kcal": 95,
+    "tol_kcal": 20,
+    "gold_quality": 4
+  },
+  {
+    "id": "yogur-natural",
+    "mealType": "Merienda",
+    "text": "Yogur natural descremado",
+    "gold_kcal": 80,
+    "tol_kcal": 15,
+    "gold_quality": 4
+  },
+  {
+    "id": "yogur-azucarado",
+    "mealType": "Merienda",
+    "text": "Yogur azucarado bebible",
+    "gold_kcal": 160,
+    "tol_kcal": 25,
+    "gold_quality": 2
+  },
+  {
+    "id": "aceite-cda",
+    "mealType": "Extra",
+    "text": "Una cucharada de aceite de oliva",
+    "gold_kcal": 120,
+    "tol_kcal": 15,
+    "gold_quality": 3
+  },
+  {
+    "id": "ensalada-verde",
+    "mealType": "Almuerzo",
+    "text": "Ensalada verde sin aderezo",
+    "gold_kcal": 35,
+    "tol_kcal": 15,
+    "gold_quality": 5
+  },
+  {
+    "id": "pizza-porcion",
+    "mealType": "Cena",
+    "text": "Una porción de pizza muzzarella",
+    "gold_kcal": 350,
+    "tol_kcal": 40,
+    "gold_quality": 2
+  },
+  {
+    "id": "empanada-carne",
+    "mealType": "Merienda",
+    "text": "Una empanada de carne frita",
+    "gold_kcal": 290,
+    "tol_kcal": 40,
+    "gold_quality": 2
+  },
+  {
+    "id": "papas-fritas",
+    "mealType": "Extra",
+    "text": "Papas fritas porción mediana",
+    "gold_kcal": 360,
+    "tol_kcal": 40,
+    "gold_quality": 1
+  },
+  {
+    "id": "helado",
+    "mealType": "Extra",
+    "text": "Helado de crema 100 g",
+    "gold_kcal": 210,
+    "tol_kcal": 30,
+    "gold_quality": 1
+  },
+  {
+    "id": "whey-scoop",
+    "mealType": "Extra",
+    "text": "Un scoop de proteína whey",
+    "gold_kcal": 120,
+    "tol_kcal": 20,
+    "gold_quality": 4
+  },
+  {
+    "id": "cafe-leche-parafrase",
+    "mealType": "Extra",
+    "text": "café cortado con leche descremada (sin azúcar)",
+    "gold_kcal": 55,
+    "tol_kcal": 15,
+    "gold_quality": 4
+  },
+  {
+    "id": "cafe-leche-300ml",
+    "mealType": "Extra",
+    "text": "Café con leche descremada 300 ml",
+    "gold_kcal": 110,
+    "tol_kcal": 15,
+    "gold_quality": 4
+  },
+  {
+    "id": "pechuga-200g",
+    "mealType": "Almuerzo",
+    "text": "Pechuga de pollo a la plancha 200 g",
+    "gold_kcal": 220,
+    "tol_kcal": 25,
+    "gold_quality": 5
+  },
+  {
+    "id": "milanesa-vs-pechuga-calidad",
+    "mealType": "Almuerzo",
+    "text": "milanesa de pollo rebozada y frita",
+    "gold_kcal": 380,
+    "tol_kcal": 50,
+    "gold_quality": 2
+  },
+  {
+    "id": "omelette-2huevos",
+    "mealType": "Desayuno",
+    "text": "Omelette de 2 huevos sin aceite",
+    "gold_kcal": 156,
+    "tol_kcal": 25,
+    "gold_quality": 4
+  },
+  {
+    "id": "arroz-300g",
+    "mealType": "Almuerzo",
+    "text": "Arroz blanco cocido 300 g",
+    "gold_kcal": 390,
+    "tol_kcal": 40,
+    "gold_quality": 3
+  }
+]

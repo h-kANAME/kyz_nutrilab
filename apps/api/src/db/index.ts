@@ -52,21 +52,85 @@ export const DEFAULT_PLAN: Array<{
   mid_label: string;
   late_label: string;
   activity_keys: string[];
+  activity_slots: Array<{ key: string; label: string; time: string }>;
 }> = [
-  { weekday: 0, mid_label: '-', late_label: 'Descanso', activity_keys: [] },
-  { weekday: 1, mid_label: 'Musculación 12:30', late_label: 'Kickboxing 18:30', activity_keys: ['kcal_gym', 'kcal_kick'] },
-  { weekday: 2, mid_label: '-', late_label: 'Caminata 30 min', activity_keys: ['kcal_walk'] },
-  { weekday: 3, mid_label: 'Musculación 12:30', late_label: 'Kickboxing 18:30', activity_keys: ['kcal_gym', 'kcal_kick'] },
-  { weekday: 4, mid_label: '-', late_label: 'Caminata 30 min', activity_keys: ['kcal_walk'] },
-  { weekday: 5, mid_label: 'Musculación 12:30', late_label: 'Kickboxing 18:30', activity_keys: ['kcal_gym', 'kcal_kick'] },
-  { weekday: 6, mid_label: '-', late_label: 'Descanso', activity_keys: [] },
+  { weekday: 0, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 1, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 2, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 3, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 4, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 5, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
+  { weekday: 6, mid_label: '-', late_label: 'Descanso', activity_keys: [], activity_slots: [] },
 ];
+
+/** Defaults genéricos (no perfil de prueba). El wizard los reemplaza en el primer login. */
+export const DEFAULT_SETTINGS = {
+  edad: 30,
+  peso: 70,
+  altura: 170,
+  sexo: 'M' as const,
+  deficit: 300,
+  minimo: 1800,
+  activity_factor: 1.2,
+  kcal_gym: 300,
+  kcal_kick: 400,
+  kcal_walk: 150,
+  theme: 'dark' as const,
+  onboarding_done: 0,
+  plan_onboarding_done: 0,
+};
+
+export const BUILTIN_ACTIVITIES: Array<{
+  key: string;
+  label: string;
+  kcal: number;
+  sort_order: number;
+}> = [
+  { key: 'kcal_gym', label: 'Gym', kcal: 300, sort_order: 10 },
+  { key: 'kcal_kick', label: 'Kick', kcal: 400, sort_order: 20 },
+  { key: 'kcal_walk', label: 'Caminata', kcal: 150, sort_order: 30 },
+  { key: 'kcal_bike', label: 'Bici', kcal: 250, sort_order: 40 },
+];
+
+export function ensureUserActivities(
+  db: Db,
+  userId: string,
+  kcalOverrides?: { kcal_gym?: number; kcal_kick?: number; kcal_walk?: number },
+): void {
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO user_activities (id, user_id, key, label, kcal, is_builtin, sort_order)
+     VALUES (?, ?, ?, ?, ?, 1, ?)`,
+  );
+  for (const a of BUILTIN_ACTIVITIES) {
+    let kcal = a.kcal;
+    if (a.key === 'kcal_gym' && kcalOverrides?.kcal_gym != null) kcal = kcalOverrides.kcal_gym;
+    if (a.key === 'kcal_kick' && kcalOverrides?.kcal_kick != null) kcal = kcalOverrides.kcal_kick;
+    if (a.key === 'kcal_walk' && kcalOverrides?.kcal_walk != null) kcal = kcalOverrides.kcal_walk;
+    insert.run(newId(), userId, a.key, a.label, kcal, a.sort_order);
+  }
+}
 
 export function ensureUserDefaults(db: Db, userId: string, defaultLlm = 'gemini'): void {
   const settings = db.prepare('SELECT user_id FROM user_settings WHERE user_id = ?').get(userId);
   if (!settings) {
-    db.prepare(`INSERT INTO user_settings (user_id, llm_provider) VALUES (?, ?)`).run(
+    db.prepare(
+      `INSERT INTO user_settings (
+         user_id, edad, peso, altura, sexo, deficit, minimo, activity_factor,
+         kcal_gym, kcal_kick, kcal_walk, theme, llm_provider, onboarding_done, plan_onboarding_done
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+    ).run(
       userId,
+      DEFAULT_SETTINGS.edad,
+      DEFAULT_SETTINGS.peso,
+      DEFAULT_SETTINGS.altura,
+      DEFAULT_SETTINGS.sexo,
+      DEFAULT_SETTINGS.deficit,
+      DEFAULT_SETTINGS.minimo,
+      DEFAULT_SETTINGS.activity_factor,
+      DEFAULT_SETTINGS.kcal_gym,
+      DEFAULT_SETTINGS.kcal_kick,
+      DEFAULT_SETTINGS.kcal_walk,
+      DEFAULT_SETTINGS.theme,
       defaultLlm,
     );
   }
@@ -76,13 +140,25 @@ export function ensureUserDefaults(db: Db, userId: string, defaultLlm = 'gemini'
   };
   if (planCount.c === 0) {
     const insert = db.prepare(
-      `INSERT INTO plan_days (user_id, weekday, mid_label, late_label, activity_keys)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO plan_days (user_id, weekday, mid_label, late_label, activity_keys, activity_slots)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     );
     for (const day of DEFAULT_PLAN) {
-      insert.run(userId, day.weekday, day.mid_label, day.late_label, JSON.stringify(day.activity_keys));
+      insert.run(
+        userId,
+        day.weekday,
+        day.mid_label,
+        day.late_label,
+        JSON.stringify(day.activity_keys),
+        JSON.stringify(day.activity_slots),
+      );
     }
   }
+
+  const row = db
+    .prepare('SELECT kcal_gym, kcal_kick, kcal_walk FROM user_settings WHERE user_id = ?')
+    .get(userId) as { kcal_gym: number; kcal_kick: number; kcal_walk: number } | undefined;
+  ensureUserActivities(db, userId, row ?? undefined);
 }
 
 export function newId(): string {

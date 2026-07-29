@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Db } from '../db/index.js';
-import { newId } from '../db/index.js';
+import { ensureUserActivities, newId } from '../db/index.js';
 
 export const MEAL_TYPES = [
   'Desayuno',
@@ -28,33 +28,121 @@ export const settingsSchema = z.object({
 
 export type Settings = z.infer<typeof settingsSchema>;
 
+export type SettingsPublic = Settings & {
+  onboarding_done: boolean;
+  plan_onboarding_done: boolean;
+};
+
+export const activitySlotSchema = z.object({
+  key: z.string().min(1).max(64),
+  label: z.string().trim().min(1).max(80),
+  time: z
+    .string()
+    .regex(/^$|^\d{2}:\d{2}$/, 'Horario HH:MM')
+    .default(''),
+});
+
+export type ActivitySlot = z.infer<typeof activitySlotSchema>;
+
 export const planDaySchema = z.object({
   weekday: z.number().int().min(0).max(6),
-  mid_label: z.string().max(120),
-  late_label: z.string().max(120),
-  activity_keys: z.array(z.enum(['kcal_gym', 'kcal_kick', 'kcal_walk'])),
+  mid_label: z.string().max(120).optional().default('-'),
+  late_label: z.string().max(120).optional().default('Descanso'),
+  activity_keys: z.array(z.string().min(1).max(64)).max(12).optional(),
+  activity_slots: z.array(activitySlotSchema).max(12).default([]),
 });
 
 export const planSchema = z.object({
   days: z.array(planDaySchema).length(7),
 });
 
-export function getSettings(db: Db, userId: string): Settings {
+export function deriveLabelsFromSlots(slots: ActivitySlot[]): {
+  mid_label: string;
+  late_label: string;
+  activity_keys: string[];
+} {
+  const activity_keys = slots.map((s) => s.key);
+  if (slots.length === 0) {
+    return { mid_label: '-', late_label: 'Descanso', activity_keys: [] };
+  }
+  const formatted = slots.map((s) => (s.time ? `${s.label} ${s.time}` : s.label));
+  if (formatted.length === 1) {
+    return { mid_label: '-', late_label: formatted[0], activity_keys };
+  }
+  return {
+    mid_label: formatted[0],
+    late_label: formatted.slice(1).join(' · '),
+    activity_keys,
+  };
+}
+
+export function normalizePlanDayInput(
+  day: z.infer<typeof planDaySchema>,
+  catalog: ActivityRow[],
+): {
+  weekday: number;
+  mid_label: string;
+  late_label: string;
+  activity_keys: string[];
+  activity_slots: ActivitySlot[];
+} {
+  let slots = [...(day.activity_slots ?? [])];
+  if (slots.length === 0 && day.activity_keys?.length) {
+    slots = day.activity_keys.map((key) => ({
+      key,
+      label: catalog.find((a) => a.key === key)?.label ?? key,
+      time: '',
+    }));
+  }
+  // Deduplicate by key, keep first
+  const seen = new Set<string>();
+  slots = slots.filter((s) => {
+    if (seen.has(s.key)) return false;
+    seen.add(s.key);
+    return true;
+  });
+  const derived = deriveLabelsFromSlots(slots);
+  return {
+    weekday: day.weekday,
+    mid_label: derived.mid_label,
+    late_label: derived.late_label,
+    activity_keys: derived.activity_keys,
+    activity_slots: slots,
+  };
+}
+export type ActivityRow = {
+  id: string;
+  key: string;
+  label: string;
+  kcal: number;
+  is_builtin: boolean;
+  sort_order: number;
+};
+
+export function getSettings(db: Db, userId: string): SettingsPublic {
   const row = db
     .prepare(
       `SELECT edad, peso, altura, sexo, deficit, minimo, activity_factor,
-              kcal_gym, kcal_kick, kcal_walk, theme, llm_provider
+              kcal_gym, kcal_kick, kcal_walk, theme, llm_provider,
+              onboarding_done, plan_onboarding_done
        FROM user_settings WHERE user_id = ?`,
     )
-    .get(userId) as Settings & { llm_provider?: string; activity_factor?: number };
+    .get(userId) as Settings & {
+    llm_provider?: string;
+    activity_factor?: number;
+    onboarding_done?: number;
+    plan_onboarding_done?: number;
+  };
   return {
     ...row,
     activity_factor: row.activity_factor ?? 1.2,
     llm_provider: (row.llm_provider as Settings['llm_provider']) || 'gemini',
+    onboarding_done: Boolean(row.onboarding_done),
+    plan_onboarding_done: Boolean(row.plan_onboarding_done),
   };
 }
 
-export function updateSettings(db: Db, userId: string, data: Settings): Settings {
+export function updateSettings(db: Db, userId: string, data: Settings): SettingsPublic {
   db.prepare(
     `UPDATE user_settings SET
       edad = ?, peso = ?, altura = ?, sexo = ?, deficit = ?, minimo = ?, activity_factor = ?,
@@ -76,13 +164,198 @@ export function updateSettings(db: Db, userId: string, data: Settings): Settings
     data.llm_provider,
     userId,
   );
+  syncBuiltinActivityKcals(db, userId, data);
   return getSettings(db, userId);
+}
+
+export function completeOnboarding(db: Db, userId: string, data: Settings): SettingsPublic {
+  db.prepare(
+    `UPDATE user_settings SET
+      edad = ?, peso = ?, altura = ?, sexo = ?, deficit = ?, minimo = ?, activity_factor = ?,
+      kcal_gym = ?, kcal_kick = ?, kcal_walk = ?, theme = ?, llm_provider = ?,
+      onboarding_done = 1, updated_at = datetime('now')
+     WHERE user_id = ?`,
+  ).run(
+    data.edad,
+    data.peso,
+    data.altura,
+    data.sexo,
+    data.deficit,
+    data.minimo,
+    data.activity_factor,
+    data.kcal_gym,
+    data.kcal_kick,
+    data.kcal_walk,
+    data.theme,
+    data.llm_provider,
+    userId,
+  );
+  syncBuiltinActivityKcals(db, userId, data);
+  return getSettings(db, userId);
+}
+
+export function getActivities(db: Db, userId: string): ActivityRow[] {
+  const settings = getSettings(db, userId);
+  ensureUserActivities(db, userId, {
+    kcal_gym: settings.kcal_gym,
+    kcal_kick: settings.kcal_kick,
+    kcal_walk: settings.kcal_walk,
+  });
+  const rows = db
+    .prepare(
+      `SELECT id, key, label, kcal, is_builtin, sort_order
+       FROM user_activities WHERE user_id = ? ORDER BY sort_order, label`,
+    )
+    .all(userId) as Array<{
+    id: string;
+    key: string;
+    label: string;
+    kcal: number;
+    is_builtin: number;
+    sort_order: number;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    key: r.key,
+    label: r.label,
+    kcal: r.kcal,
+    is_builtin: Boolean(r.is_builtin),
+    sort_order: r.sort_order,
+  }));
+}
+
+function activityKcalMap(db: Db, userId: string): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const a of getActivities(db, userId)) map.set(a.key, a.kcal);
+  return map;
+}
+
+export function syncBuiltinActivityKcals(db: Db, userId: string, data: Settings): void {
+  ensureUserActivities(db, userId, {
+    kcal_gym: data.kcal_gym,
+    kcal_kick: data.kcal_kick,
+    kcal_walk: data.kcal_walk,
+  });
+  const upsert = db.prepare(
+    `UPDATE user_activities SET kcal = ? WHERE user_id = ? AND key = ?`,
+  );
+  upsert.run(data.kcal_gym, userId, 'kcal_gym');
+  upsert.run(data.kcal_kick, userId, 'kcal_kick');
+  upsert.run(data.kcal_walk, userId, 'kcal_walk');
+}
+
+export const activityCreateSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  kcal: z.number().int().min(0).max(5000),
+});
+
+export const activityUpdateSchema = z.object({
+  label: z.string().trim().min(1).max(40).optional(),
+  kcal: z.number().int().min(0).max(5000).optional(),
+});
+
+export function createCustomActivity(
+  db: Db,
+  userId: string,
+  input: z.infer<typeof activityCreateSchema>,
+): ActivityRow {
+  const id = newId();
+  const key = `custom_${id.replace(/-/g, '').slice(0, 12)}`;
+  const maxSort = db
+    .prepare('SELECT COALESCE(MAX(sort_order), 100) AS m FROM user_activities WHERE user_id = ?')
+    .get(userId) as { m: number };
+  db.prepare(
+    `INSERT INTO user_activities (id, user_id, key, label, kcal, is_builtin, sort_order)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`,
+  ).run(id, userId, key, input.label, input.kcal, maxSort.m + 10);
+  return getActivities(db, userId).find((a) => a.id === id)!;
+}
+
+export function updateActivity(
+  db: Db,
+  userId: string,
+  activityId: string,
+  patch: z.infer<typeof activityUpdateSchema>,
+): ActivityRow | null {
+  const row = db
+    .prepare('SELECT id, key, is_builtin FROM user_activities WHERE id = ? AND user_id = ?')
+    .get(activityId, userId) as { id: string; key: string; is_builtin: number } | undefined;
+  if (!row) return null;
+  const current = getActivities(db, userId).find((a) => a.id === activityId)!;
+  const label = patch.label ?? current.label;
+  const kcal = patch.kcal ?? current.kcal;
+  db.prepare(`UPDATE user_activities SET label = ?, kcal = ? WHERE id = ? AND user_id = ?`).run(
+    label,
+    kcal,
+    activityId,
+    userId,
+  );
+  // Mirror builtins into settings columns used by profile wizard
+  if (row.key === 'kcal_gym' || row.key === 'kcal_kick' || row.key === 'kcal_walk') {
+    db.prepare(`UPDATE user_settings SET ${row.key} = ?, updated_at = datetime('now') WHERE user_id = ?`).run(
+      kcal,
+      userId,
+    );
+  }
+  return getActivities(db, userId).find((a) => a.id === activityId) ?? null;
+}
+
+export function deleteCustomActivity(db: Db, userId: string, activityId: string): boolean {
+  const row = db
+    .prepare('SELECT id, key, is_builtin FROM user_activities WHERE id = ? AND user_id = ?')
+    .get(activityId, userId) as { id: string; key: string; is_builtin: number } | undefined;
+  if (!row || row.is_builtin) return false;
+  db.prepare('DELETE FROM user_activities WHERE id = ? AND user_id = ?').run(activityId, userId);
+  // Remove key from all plan days
+  const days = getPlan(db, userId);
+  updatePlan(
+    db,
+    userId,
+    days.map((d) => ({
+      weekday: d.weekday,
+      mid_label: d.mid_label,
+      late_label: d.late_label,
+      activity_keys: d.activity_keys.filter((k) => k !== row.key),
+      activity_slots: (d.activity_slots ?? []).filter((s) => s.key !== row.key),
+    })),
+  );
+  return true;
+}
+
+export function completePlanOnboarding(
+  db: Db,
+  userId: string,
+  days: z.infer<typeof planSchema>['days'],
+): { days: ReturnType<typeof getPlan>; settings: SettingsPublic } {
+  const catalog = getActivities(db, userId);
+  const allowed = new Set(catalog.map((a) => a.key));
+  const normalized = days.map((d) => normalizePlanDayInput(d, catalog));
+  for (const d of normalized) {
+    for (const k of d.activity_keys) {
+      if (!allowed.has(k)) throw new Error(`Actividad desconocida: ${k}`);
+    }
+  }
+  const updated = updatePlan(db, userId, normalized);
+  db.prepare(
+    `UPDATE user_settings SET plan_onboarding_done = 1, updated_at = datetime('now') WHERE user_id = ?`,
+  ).run(userId);
+  return { days: updated, settings: getSettings(db, userId) };
+}
+
+export function labelsFromActivityKeys(
+  keys: string[],
+  catalog: ActivityRow[],
+): { mid_label: string; late_label: string } {
+  if (keys.length === 0) return { mid_label: '-', late_label: 'Descanso' };
+  const names = keys.map((k) => catalog.find((a) => a.key === k)?.label ?? k);
+  if (names.length === 1) return { mid_label: '-', late_label: names[0] };
+  return { mid_label: names[0], late_label: names.slice(1).join(' + ') };
 }
 
 export function getPlan(db: Db, userId: string) {
   const rows = db
     .prepare(
-      `SELECT weekday, mid_label, late_label, activity_keys
+      `SELECT weekday, mid_label, late_label, activity_keys, activity_slots
        FROM plan_days WHERE user_id = ? ORDER BY weekday`,
     )
     .all(userId) as Array<{
@@ -90,14 +363,36 @@ export function getPlan(db: Db, userId: string) {
     mid_label: string;
     late_label: string;
     activity_keys: string;
+    activity_slots?: string;
   }>;
 
-  return rows.map((r) => ({
-    weekday: r.weekday,
-    mid_label: r.mid_label,
-    late_label: r.late_label,
-    activity_keys: JSON.parse(r.activity_keys) as string[],
-  }));
+  const catalog = getActivities(db, userId);
+
+  return rows.map((r) => {
+    const keys = JSON.parse(r.activity_keys || '[]') as string[];
+    let slots: ActivitySlot[] = [];
+    try {
+      slots = JSON.parse(r.activity_slots || '[]') as ActivitySlot[];
+    } catch {
+      slots = [];
+    }
+    if (!Array.isArray(slots)) slots = [];
+    if (slots.length === 0 && keys.length > 0) {
+      slots = keys.map((key) => ({
+        key,
+        label: catalog.find((a) => a.key === key)?.label ?? key,
+        time: '',
+      }));
+    }
+    const derived = deriveLabelsFromSlots(slots);
+    return {
+      weekday: r.weekday,
+      mid_label: slots.length ? derived.mid_label : r.mid_label,
+      late_label: slots.length ? derived.late_label : r.late_label,
+      activity_keys: derived.activity_keys.length ? derived.activity_keys : keys,
+      activity_slots: slots,
+    };
+  });
 }
 
 export function updatePlan(
@@ -105,17 +400,27 @@ export function updatePlan(
   userId: string,
   days: z.infer<typeof planSchema>['days'],
 ) {
+  const catalog = getActivities(db, userId);
   const upsert = db.prepare(
-    `INSERT INTO plan_days (user_id, weekday, mid_label, late_label, activity_keys)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO plan_days (user_id, weekday, mid_label, late_label, activity_keys, activity_slots)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, weekday) DO UPDATE SET
        mid_label = excluded.mid_label,
        late_label = excluded.late_label,
-       activity_keys = excluded.activity_keys`,
+       activity_keys = excluded.activity_keys,
+       activity_slots = excluded.activity_slots`,
   );
   const tx = db.transaction(() => {
-    for (const d of days) {
-      upsert.run(userId, d.weekday, d.mid_label, d.late_label, JSON.stringify(d.activity_keys));
+    for (const raw of days) {
+      const d = normalizePlanDayInput(raw, catalog);
+      upsert.run(
+        userId,
+        d.weekday,
+        d.mid_label,
+        d.late_label,
+        JSON.stringify(d.activity_keys),
+        JSON.stringify(d.activity_slots),
+      );
     }
   });
   tx();
@@ -130,9 +435,13 @@ export function computeBase(s: Settings): number {
   return computeTmb(s) * (s.activity_factor ?? 1.2);
 }
 
-export function kcalForKeys(s: Settings, keys: string[]): number {
+export function kcalForKeys(s: Settings, keys: string[], kcalByKey?: Map<string, number>): number {
   let sum = 0;
   for (const k of keys) {
+    if (kcalByKey?.has(k)) {
+      sum += kcalByKey.get(k) ?? 0;
+      continue;
+    }
     if (k === 'kcal_gym') sum += s.kcal_gym;
     if (k === 'kcal_kick') sum += s.kcal_kick;
     if (k === 'kcal_walk') sum += s.kcal_walk;
@@ -140,16 +449,24 @@ export function kcalForKeys(s: Settings, keys: string[]): number {
   return sum;
 }
 
-export function objetivoDia(s: Settings, activityKeys: string[]): number {
-  const gasto = computeBase(s) + kcalForKeys(s, activityKeys);
+export function objetivoDia(
+  s: Settings,
+  activityKeys: string[],
+  kcalByKey?: Map<string, number>,
+): number {
+  const gasto = computeBase(s) + kcalForKeys(s, activityKeys, kcalByKey);
   return Math.max(s.minimo, Math.round(gasto - s.deficit));
 }
 
-export function formulaBreakdown(s: Settings, activityKeys: string[] = []) {
+export function formulaBreakdown(
+  s: Settings,
+  activityKeys: string[] = [],
+  kcalByKey?: Map<string, number>,
+) {
   const tmb = computeTmb(s);
   const factor = s.activity_factor ?? 1.2;
   const base = tmb * factor;
-  const activity = kcalForKeys(s, activityKeys);
+  const activity = kcalForKeys(s, activityKeys, kcalByKey);
   const beforeFloor = Math.round(base + activity - s.deficit);
   const goal = Math.max(s.minimo, beforeFloor);
   return {
@@ -163,6 +480,10 @@ export function formulaBreakdown(s: Settings, activityKeys: string[] = []) {
     goal,
     floored: goal === s.minimo && beforeFloor < s.minimo,
   };
+}
+
+export function activityMapForUser(db: Db, userId: string): Map<string, number> {
+  return activityKcalMap(db, userId);
 }
 
 export type MealRow = {

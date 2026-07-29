@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from './lib/auth';
+import { api } from './lib/api';
 import { LoginScreen } from './components/LoginScreen';
+import { OnboardingWizard } from './components/OnboardingWizard';
+import { PlanWizard } from './components/PlanWizard';
 import { HoyTab } from './components/HoyTab';
 import { SemanaTab } from './components/SemanaTab';
 import { PlanTab } from './components/PlanTab';
 import { AjustesTab } from './components/AjustesTab';
-import { DIAS_FULL, todayKey } from './lib/types';
+import { DIAS_FULL, todayKey, type Settings } from './lib/types';
 
 type Tab = 'hoy' | 'semana' | 'plan' | 'ajustes';
 
@@ -20,11 +23,33 @@ export function App() {
   const [tab, setTab] = useState<Tab>('hoy');
   const [toastMsg, setToastMsg] = useState('');
   const [toastShow, setToastShow] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
+  const [needsPlanOnboarding, setNeedsPlanOnboarding] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('nutrilab-theme') as 'dark' | 'light' | null;
     applyTheme(saved === 'light' ? 'light' : 'dark');
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setNeedsOnboarding(null);
+      setNeedsPlanOnboarding(false);
+      return;
+    }
+    setNeedsOnboarding(null);
+    void api
+      .getSettings()
+      .then((r) => {
+        setNeedsOnboarding(!r.settings.onboarding_done);
+        setNeedsPlanOnboarding(Boolean(r.settings.onboarding_done) && !r.settings.plan_onboarding_done);
+        if (r.settings.theme) applyTheme(r.settings.theme);
+      })
+      .catch(() => {
+        setNeedsOnboarding(false);
+        setNeedsPlanOnboarding(false);
+      });
+  }, [user]);
 
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -37,8 +62,36 @@ export function App() {
     localStorage.setItem('nutrilab-theme', theme);
   };
 
+  const onOnboardingDone = (settings: Settings) => {
+    setNeedsOnboarding(false);
+    setNeedsPlanOnboarding(!settings.plan_onboarding_done);
+    onTheme(settings.theme);
+  };
+
+  const onPlanOnboardingDone = () => {
+    setNeedsPlanOnboarding(false);
+    setTab('hoy');
+  };
+
   if (loading) return <div className="loading">Cargando…</div>;
   if (!user) return <LoginScreen />;
+  if (needsOnboarding === null) return <div className="loading">Cargando…</div>;
+  if (needsOnboarding) {
+    return (
+      <div className="app-shell">
+        <OnboardingWizard onDone={onOnboardingDone} toast={toast} />
+        <div className={`toast${toastShow ? ' show' : ''}`}>{toastMsg}</div>
+      </div>
+    );
+  }
+  if (needsPlanOnboarding) {
+    return (
+      <div className="app-shell">
+        <PlanWizard onDone={onPlanOnboardingDone} toast={toast} />
+        <div className={`toast${toastShow ? ' show' : ''}`}>{toastMsg}</div>
+      </div>
+    );
+  }
 
   const dow = new Date(todayKey() + 'T12:00:00').getDay();
   const titles: Record<Tab, { eyebrow: string; title: string }> = {

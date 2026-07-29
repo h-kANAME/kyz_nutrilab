@@ -270,6 +270,7 @@ button.primary,
 input[type='number'],
 input[type='text'],
 input[type='date'],
+input[type='time'],
 textarea,
 select {
   background: var(--surface-alt);
@@ -1062,6 +1063,25 @@ button.ghost {
   border-bottom: none;
 }
 
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(7.25rem, auto);
+  gap: 8px;
+  align-items: center;
+}
+
+.slot-row input[type='time'] {
+  width: 100%;
+  min-width: 7.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .profile {
   display: flex;
   align-items: center;
@@ -1098,6 +1118,134 @@ button.ghost {
   justify-content: center;
   min-height: 60vh;
   color: var(--text-muted);
+}
+
+.activity-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+}
+
+.activity-edit-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-edit-row .remove {
+  background: none;
+  border: none;
+  color: var(--coral);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.onboarding {
+  padding: 20px 16px 32px;
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onboarding-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onboarding-brand h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  border: 1px solid transparent;
+  opacity: 0.55;
+}
+
+.onboarding-step.on {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--stroke));
+}
+
+.onboarding-step.done {
+  opacity: 0.85;
+}
+
+.onboarding-step-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.onboarding-step-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.onboarding-card {
+  flex: 1;
+}
+
+.onboarding-preview {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--stroke);
+}
+
+.onboarding-error {
+  color: var(--coral);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboarding-actions .primary {
+  min-width: 140px;
+  padding: 12px 16px;
+}
+
+.onboarding-foot {
+  text-align: center;
+  font-size: 12px;
+  margin: 0;
 }
 
 :focus-visible {

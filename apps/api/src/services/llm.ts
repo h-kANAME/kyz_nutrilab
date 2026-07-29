@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import type { Env } from '../config/env.js';
+import { MEAL_LLM_TEMPERATURE, SYSTEM_PROMPT } from './mealPrompt.js';
+
+export { MEAL_PROMPT_VERSION, SYSTEM_PROMPT } from './mealPrompt.js';
 
 export const mealEstimateSchema = z.object({
   items: z
@@ -41,23 +44,6 @@ export interface LlmProvider {
   parseMealImage(input: ParseImageInput): Promise<MealEstimate>;
 }
 
-const SYSTEM_PROMPT = `Sos un nutricionista asistente orientado a composición corporal esbelta y tonificada.
-Dado un alimento o comida en español, estimá valores nutricionales de la porción descrita Y discriminá la calidad de esas calorías (no todas las kcal son iguales).
-
-Respondé SOLO JSON válido con esta forma:
-{"items":[{"name":"string","kcal":number,"protein":number|null,"carbs":number|null,"fat":number|null,"quality_score":1-5,"quality_note":"string|null"}],"confidence":0-1,"notes":"string|null"}
-
-quality_score (obligatorio por ítem), criterio para cuerpo esbelto/tonificado:
-5 = magro + denso en proteína, mínima ultraprocesación (ej. pechuga a la plancha, pescado, claras, verduras).
-4 = bueno: proteína sólida, preparación limpia, poco aceite/fritura.
-3 = neutro/mixto: aceptable pero no óptimo (ej. arroz con guarnición frita parcial, yogurt azucarado moderado).
-2 = poco favorable: empanado, fritura, refinados, azúcares, embutidos grasos (ej. milanesa con pan rallado frita).
-1 = dañino para el objetivo: ultraprocesado, fritura profunda + harinas, gaseosas, snacks, alcohol calórico.
-
-quality_note: 1 frase corta en español explicando por qué (ej. "frita y empanada: más grasa inflamatoria y menos densidad proteica").
-Misma kcal puede tener scores muy distintos: pechuga seca ≠ milanesa empanada.
-No inventes unidades raras. Si la porción es ambigua, asumí una porción típica y aclaralo en notes.`;
-
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -83,7 +69,10 @@ async function geminiGenerate(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts }],
-      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: MEAL_LLM_TEMPERATURE,
+        responseMimeType: 'application/json',
+      },
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     }),
   });
@@ -134,7 +123,7 @@ async function openAiChat(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: MEAL_LLM_TEMPERATURE,
       response_format: { type: 'json_object' },
       messages,
     }),

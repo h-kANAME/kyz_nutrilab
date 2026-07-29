@@ -7,17 +7,26 @@ import { listAvailableLlms } from '../services/llm.js';
 import {
   MEAL_TYPES,
   addMeal,
+  activityCreateSchema,
+  activityMapForUser,
+  activityUpdateSchema,
+  completeOnboarding,
+  completePlanOnboarding,
   computeBase,
   computeTmb,
+  createCustomActivity,
+  deleteCustomActivity,
   deleteMeal,
+  formulaBreakdown,
+  getActivities,
   getDay,
   getDaysRange,
   getPlan,
   getSettings,
   objetivoDia,
-  formulaBreakdown,
   planSchema,
   settingsSchema,
+  updateActivity,
   updateDay,
   updateMeal,
   updatePlan,
@@ -27,6 +36,10 @@ import {
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 
+function withActMap(db: Db, userId: string) {
+  return activityMapForUser(db, userId);
+}
+
 export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsync {
   return async (app) => {
     app.addHook('preHandler', auth.requireAuth);
@@ -34,12 +47,14 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
     app.get('/settings', async (request) => {
       const settings = getSettings(db, request.user!.id);
       const plan = getPlan(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
       const dow = new Date().getDay();
       const todayPlan = plan.find((p) => p.weekday === dow);
       const keys = todayPlan?.activity_keys ?? [];
-      const formula = formulaBreakdown(settings, keys);
+      const formula = formulaBreakdown(settings, keys, actMap);
       return {
         settings,
+        activities: getActivities(db, request.user!.id),
         derived: {
           tmb: formula.tmb,
           base: formula.base,
@@ -60,12 +75,14 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
       }
       const settings = updateSettings(db, request.user!.id, data);
       const plan = getPlan(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
       const dow = new Date().getDay();
       const todayPlan = plan.find((p) => p.weekday === dow);
       const keys = todayPlan?.activity_keys ?? [];
-      const formula = formulaBreakdown(settings, keys);
+      const formula = formulaBreakdown(settings, keys, actMap);
       return {
         settings,
+        activities: getActivities(db, request.user!.id),
         derived: {
           tmb: formula.tmb,
           base: formula.base,
@@ -77,14 +94,69 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
       };
     });
 
+    app.post('/settings/onboarding', async (request, reply) => {
+      const data = settingsSchema.parse(request.body);
+      const providers = listAvailableLlms(env);
+      const selected = providers.find((p) => p.id === data.llm_provider);
+      if (!selected?.configured) {
+        const fallback = providers.find((p) => p.configured);
+        if (!fallback) {
+          return reply.badRequest('Ningún proveedor LLM tiene API key configurada');
+        }
+        data.llm_provider = fallback.id;
+      }
+      const settings = completeOnboarding(db, request.user!.id, data);
+      const formula = formulaBreakdown(settings, []);
+      return {
+        settings,
+        activities: getActivities(db, request.user!.id),
+        derived: {
+          tmb: formula.tmb,
+          base: formula.base,
+          floor: settings.minimo,
+          formula,
+          today_activity_keys: [] as string[],
+        },
+        llmProviders: providers,
+      };
+    });
+
+    app.get('/activities', async (request) => ({
+      activities: getActivities(db, request.user!.id),
+    }));
+
+    app.post('/activities', async (request) => {
+      const body = activityCreateSchema.parse(request.body);
+      const activity = createCustomActivity(db, request.user!.id, body);
+      return { activity, activities: getActivities(db, request.user!.id) };
+    });
+
+    app.patch('/activities/:id', async (request, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+      const body = activityUpdateSchema.parse(request.body);
+      const activity = updateActivity(db, request.user!.id, id, body);
+      if (!activity) return reply.notFound();
+      return { activity, activities: getActivities(db, request.user!.id) };
+    });
+
+    app.delete('/activities/:id', async (request, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+      const ok = deleteCustomActivity(db, request.user!.id, id);
+      if (!ok) return reply.badRequest('Solo se pueden eliminar actividades personalizadas');
+      return { activities: getActivities(db, request.user!.id) };
+    });
+
     app.get('/plan', async (request) => {
       const settings = getSettings(db, request.user!.id);
       const days = getPlan(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
+      const activities = getActivities(db, request.user!.id);
       return {
         days: days.map((d) => ({
           ...d,
-          objetivo: objetivoDia(settings, d.activity_keys),
+          objetivo: objetivoDia(settings, d.activity_keys, actMap),
         })),
+        activities,
         derived: {
           tmb: Math.round(computeTmb(settings)),
           base: Math.round(computeBase(settings)),
@@ -96,13 +168,43 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
     app.put('/plan', async (request) => {
       const { days } = planSchema.parse(request.body);
       const settings = getSettings(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
+      const catalog = getActivities(db, request.user!.id);
+      const allowed = new Set(catalog.map((a) => a.key));
+      for (const d of days) {
+        const keys = (d.activity_slots?.length ? d.activity_slots.map((s) => s.key) : d.activity_keys) ?? [];
+        for (const k of keys) {
+          if (!allowed.has(k)) throw new Error(`Actividad desconocida: ${k}`);
+        }
+      }
       const updated = updatePlan(db, request.user!.id, days);
       return {
         days: updated.map((d) => ({
           ...d,
-          objetivo: objetivoDia(settings, d.activity_keys),
+          objetivo: objetivoDia(settings, d.activity_keys, actMap),
         })),
+        activities: catalog,
       };
+    });
+
+    app.post('/plan/onboarding', async (request, reply) => {
+      const { days } = planSchema.parse(request.body);
+      try {
+        const catalog = getActivities(db, request.user!.id);
+        const result = completePlanOnboarding(db, request.user!.id, days);
+        const settings = result.settings;
+        const actMap = withActMap(db, request.user!.id);
+        return {
+          settings,
+          activities: catalog,
+          days: result.days.map((d) => ({
+            ...d,
+            objetivo: objetivoDia(settings, d.activity_keys, actMap),
+          })),
+        };
+      } catch (e) {
+        return reply.badRequest(e instanceof Error ? e.message : 'Plan inválido');
+      }
     });
 
     app.get('/days', async (request, reply) => {
@@ -117,11 +219,12 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
 
       const settings = getSettings(db, request.user!.id);
       const plan = getPlan(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
       const days = getDaysRange(db, request.user!.id, q.from, q.to).map((day) => {
         const dow = new Date(day.date + 'T12:00:00').getDay();
         const planDay = plan.find((p) => p.weekday === dow)!;
         const consumed = day.meals.reduce((s, m) => s + m.kcal, 0);
-        const goal = objetivoDia(settings, planDay.activity_keys);
+        const goal = objetivoDia(settings, planDay.activity_keys, actMap);
         return {
           ...day,
           consumed,
@@ -137,6 +240,7 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
       const { date } = z.object({ date: z.string().regex(dateRe) }).parse(request.params);
       const settings = getSettings(db, request.user!.id);
       const plan = getPlan(db, request.user!.id);
+      const actMap = withActMap(db, request.user!.id);
       const day = getDay(db, request.user!.id, date);
       const dow = new Date(date + 'T12:00:00').getDay();
       const planDay = plan.find((p) => p.weekday === dow)!;
@@ -145,7 +249,7 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
         day: {
           ...day,
           consumed,
-          goal: objetivoDia(settings, planDay.activity_keys),
+          goal: objetivoDia(settings, planDay.activity_keys, actMap),
           quality_avg: weightedQuality(day.meals),
           plan: planDay,
         },

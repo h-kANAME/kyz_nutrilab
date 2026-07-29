@@ -1,4 +1,4 @@
-import type { Settings } from './types';
+import type { Settings, UserActivity } from './types';
 
 export type FormulaBreakdown = {
   tmb: number;
@@ -14,16 +14,19 @@ export type FormulaBreakdown = {
 
 export function computeLocalFormula(
   s: Settings,
-  activityKeys: Array<'kcal_gym' | 'kcal_kick' | 'kcal_walk' | string> = [],
+  activityKeys: string[] = [],
+  activities: UserActivity[] = [],
 ): FormulaBreakdown {
   const tmb = 10 * s.peso + 6.25 * s.altura - 5 * s.edad + (s.sexo === 'M' ? 5 : -161);
   const factor = s.activity_factor ?? 1.2;
   const base = tmb * factor;
+  const byKey = new Map(activities.map((a) => [a.key, a.kcal]));
   let activity = 0;
   for (const k of activityKeys) {
-    if (k === 'kcal_gym') activity += s.kcal_gym;
-    if (k === 'kcal_kick') activity += s.kcal_kick;
-    if (k === 'kcal_walk') activity += s.kcal_walk;
+    if (byKey.has(k)) activity += byKey.get(k) ?? 0;
+    else if (k === 'kcal_gym') activity += s.kcal_gym;
+    else if (k === 'kcal_kick') activity += s.kcal_kick;
+    else if (k === 'kcal_walk') activity += s.kcal_walk;
   }
   const beforeFloor = Math.round(base + activity - s.deficit);
   const goal = Math.max(s.minimo, beforeFloor);

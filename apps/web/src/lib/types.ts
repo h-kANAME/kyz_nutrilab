@@ -18,6 +18,17 @@ export type Settings = {
   kcal_walk: number;
   theme: 'dark' | 'light';
   llm_provider: 'gemini' | 'openai' | 'deepseek';
+  onboarding_done?: boolean;
+  plan_onboarding_done?: boolean;
+};
+
+export type UserActivity = {
+  id: string;
+  key: string;
+  label: string;
+  kcal: number;
+  is_builtin: boolean;
+  sort_order: number;
 };
 
 export type LlmProviderInfo = {
@@ -27,13 +38,33 @@ export type LlmProviderInfo = {
   supportsVision: boolean;
 };
 
+export type ActivitySlot = {
+  key: string;
+  label: string;
+  time: string;
+};
+
 export type PlanDay = {
   weekday: number;
   mid_label: string;
   late_label: string;
-  activity_keys: Array<'kcal_gym' | 'kcal_kick' | 'kcal_walk'>;
+  activity_keys: string[];
+  activity_slots?: ActivitySlot[];
   objetivo?: number;
 };
+
+export function formatActivitySlot(slot: ActivitySlot): string {
+  return slot.time ? `${slot.label} ${slot.time}` : slot.label;
+}
+
+export function formatPlanDay(plan: PlanDay): string {
+  const slots = plan.activity_slots ?? [];
+  if (slots.length > 0) return slots.map(formatActivitySlot).join(' · ');
+  if (plan.activity_keys.length === 0) return 'Descanso';
+  const mid = plan.mid_label && plan.mid_label !== '-' ? plan.mid_label : '';
+  const late = plan.late_label || '';
+  return [mid, late].filter(Boolean).join(' · ') || 'Descanso';
+}
 
 export type Meal = {
   id: string;

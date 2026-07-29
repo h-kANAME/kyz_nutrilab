@@ -7,6 +7,7 @@ import {
   QUALITY_LABELS,
   qualityTone,
   weightedQualityAvg,
+  formatPlanDay,
   type DayLog,
   type Meal,
 } from '../lib/types';
@@ -304,7 +305,7 @@ export function HoyTab({ toast }: Props) {
         </div>
         {day.plan && (
           <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-            Plan: {day.plan.mid_label} / {day.plan.late_label}
+            Plan: {formatPlanDay(day.plan)}
           </p>
         )}
       </div>
