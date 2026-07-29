@@ -59,9 +59,36 @@ Env mínimas en Dokploy:
 - `ALLOWED_GOOGLE_EMAILS` (lista real, sin `*`)
 - `JWT_SECRET` (≥32 chars)
 - `LLM_PROVIDER` + keys
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` (Web Push Android)
 
 Datos persistentes: volumen `nutrilab_sqlite` (DB + uploads).
 
+Notificaciones: Ajustes → activar en Chrome Android (HTTPS).
+
+### Recordatorios automáticos (Mission Control)
+
+La lógica vive en el API; el disparo periódico en [Centro de Control](https://control.kyz-apps.site/).
+
+| Campo | Valor |
+|-------|--------|
+| Proyecto | `nutrilab` |
+| Cron (UTC) | `*/15 * * * *` |
+| Comando | `exec service=nutrilabapi match=nutrilab -- node dist/jobs/runNotifications.js` |
+
+Criterios (hora **America/Argentina/Buenos_Aires**):
+
+| Qué | Cuándo | Condición |
+|-----|--------|-----------|
+| Peso | 09:00 | Sin peso cargado hoy |
+| Comidas | 10:00 / 13:30 / 21:00 | Menos comidas de las esperadas (1 / 2 / 3) |
+| Entrenamiento | 21:00 | Hay actividad en el plan y no marcaste sí/no |
+
+Dedupe: un envío por usuario/día/slot. Probar a mano:
+
+```bash
+docker exec <nutrilabapi> node dist/jobs/runNotifications.js --dry-run
+docker exec <nutrilabapi> node dist/jobs/runNotifications.js
+```
 ## Estructura
 
 ```

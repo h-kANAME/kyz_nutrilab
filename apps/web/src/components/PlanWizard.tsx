@@ -221,7 +221,7 @@ export function PlanWizard({ onDone, toast }: Props) {
             <div className="card-title" style={{ marginTop: 16 }}>
               Agregar otra
             </div>
-            <div className="add-row" style={{ marginTop: 0 }}>
+            <div className="add-row">
               <input
                 type="text"
                 placeholder="ej. Natación"

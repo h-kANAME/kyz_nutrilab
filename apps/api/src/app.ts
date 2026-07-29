@@ -13,6 +13,7 @@ import { createAuthHelpers } from './plugins/auth.js';
 import { authRoutes } from './routes/auth.js';
 import { trackerRoutes } from './routes/tracker.js';
 import { aiRoutes } from './routes/ai.js';
+import { notificationRoutes } from './routes/notifications.js';
 
 export async function buildApp(env: Env, db?: Db) {
   const database = db ?? openDb(env.SQLITE_PATH);
@@ -53,6 +54,7 @@ export async function buildApp(env: Env, db?: Db) {
   await app.register(authRoutes(auth), { prefix: '/api/auth' });
   await app.register(trackerRoutes(auth, database, env), { prefix: '/api' });
   await app.register(aiRoutes(auth, database, env), { prefix: '/api/ai' });
+  await app.register(notificationRoutes(auth, database, env), { prefix: '/api' });
 
   app.get(
     '/api/uploads/*',

@@ -8,6 +8,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+      workbox: {
+        importScripts: ['push-sw.js'],
+        navigateFallback: '/index.html',
+      },
       manifest: {
         name: 'KYZ NutriLab',
         short_name: 'NutriLab',

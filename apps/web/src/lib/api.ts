@@ -142,6 +142,36 @@ export const api = {
       body: form,
       headers: {},
     }),
+  getNotificationStatus: () =>
+    request<import('./types').NotificationStatus>('/api/notifications/status'),
+  putNotificationPrefs: (prefs: import('./types').NotificationPrefs) =>
+    request<{ prefs: import('./types').NotificationPrefs }>('/api/notifications/prefs', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
+    }),
+  subscribePush: (body: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{
+      ok: boolean;
+      subscriptionCount: number;
+      prefs: import('./types').NotificationPrefs;
+    }>('/api/notifications/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  unsubscribePush: (body: { endpoint?: string; all?: boolean }) =>
+    request<{
+      ok: boolean;
+      subscriptionCount: number;
+      prefs: import('./types').NotificationPrefs;
+    }>('/api/notifications/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify(body),
+    }),
+  testPush: () =>
+    request<{ ok: boolean; sent: number; removed: number }>('/api/notifications/test', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 };
 
 export function mealImageUrl(imagePath: string | null): string | null {

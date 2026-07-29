@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { ACTIVITY_FACTOR_PRESETS, computeLocalFormula } from '../lib/formula';
 import type { LlmProviderInfo, Settings } from '../lib/types';
 import { AlertModal } from './AlertModal';
+import { NotificationsCard } from './NotificationsCard';
 
 type Props = {
   toast: (msg: string) => void;
@@ -135,6 +136,8 @@ export function AjustesTab({ toast, onTheme }: Props) {
           </div>
         </div>
       </div>
+
+      <NotificationsCard toast={toast} />
 
       {/* INDICATORS — primary mental model */}
       <div className="card">

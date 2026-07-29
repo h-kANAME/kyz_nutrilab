@@ -49,6 +49,9 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       SQLITE_PATH: /data/nutrilab.db
       UPLOAD_DIR: /data/uploads
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@kyz-apps.site}
     volumes:
       - nutrilab_sqlite:/data
     networks: [nutrilab]

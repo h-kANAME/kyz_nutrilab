@@ -17,6 +17,10 @@ const envSchema = z.object({
   DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
   SQLITE_PATH: z.string().default('./data/nutrilab.db'),
   UPLOAD_DIR: z.string().default('./data/uploads'),
+  /** Web Push VAPID — dejar vacío desactiva notificaciones */
+  VAPID_PUBLIC_KEY: z.string().optional().default(''),
+  VAPID_PRIVATE_KEY: z.string().optional().default(''),
+  VAPID_SUBJECT: z.string().default('mailto:admin@kyz-apps.site'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -31,6 +31,27 @@ export type UserActivity = {
   sort_order: number;
 };
 
+export type NotificationPrefs = {
+  enabled: boolean;
+  remind_meals: boolean;
+  remind_training: boolean;
+  remind_weight: boolean;
+};
+
+export type NotificationStatus = {
+  configured: boolean;
+  publicKey: string | null;
+  subscriptionCount: number;
+  prefs: NotificationPrefs;
+  schedule?: {
+    timezone: string;
+    meals: Array<{ time: string; body: string }>;
+    training: { time: string; body: string };
+    weight: { time: string; body: string };
+    tickHint: string;
+  };
+};
+
 export type LlmProviderInfo = {
   id: 'gemini' | 'openai' | 'deepseek';
   label: string;
