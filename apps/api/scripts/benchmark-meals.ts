@@ -12,6 +12,7 @@ import {
   listAvailableLlms,
   type LlmProviderName,
 } from '../src/services/llm.js';
+import { estimateMealText } from '../src/services/estimateMeal.js';
 import { MEAL_PROMPT_VERSION } from '../src/services/mealPrompt.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -101,7 +102,7 @@ async function runProvider(
   for (const c of allCases) {
     const started = Date.now();
     try {
-      const estimate = await provider.parseMealText({
+      const estimate = await estimateMealText(provider, {
         mealType: c.mealType,
         text: c.text,
       });

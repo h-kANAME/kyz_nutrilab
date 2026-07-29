@@ -5,7 +5,7 @@ build/
 .env.local
 *.db
 *.db-journal
-data/
+/data/
 uploads/
 .DS_Store
 *.log

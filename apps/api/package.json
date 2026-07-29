@@ -9,6 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "benchmark:meals": "tsx scripts/benchmark-meals.ts",
+    "test:meal-resolve": "tsx scripts/test-meal-resolve.ts",
+    "validate:gold-catalog": "tsx scripts/validate-gold-catalog.ts",
     "job:notifications": "tsx src/jobs/runNotifications.ts"
   },
   "dependencies": {

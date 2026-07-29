@@ -13,6 +13,7 @@ import {
   publicAiError,
   type LlmProviderName,
 } from '../services/llm.js';
+import { estimateMealImage, estimateMealText } from '../services/estimateMeal.js';
 import { newId } from '../db/index.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -67,7 +68,7 @@ export function aiRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsyn
         ).run(jobId, request.user!.id, provider.name, provider.model, 'text', 'running');
 
         try {
-          const estimate = await provider.parseMealText({
+          const estimate = await estimateMealText(provider, {
             mealType: body.mealType,
             text: body.text,
           });
@@ -158,7 +159,7 @@ export function aiRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsyn
         fs.writeFileSync(absPath, buffer);
 
         try {
-          const estimate = await provider.parseMealImage({
+          const estimate = await estimateMealImage(provider, {
             mealType,
             text,
             mimeType: file.mimetype,

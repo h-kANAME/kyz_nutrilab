@@ -1,8 +1,13 @@
 import { z } from 'zod';
 import type { Env } from '../config/env.js';
-import { MEAL_LLM_TEMPERATURE, SYSTEM_PROMPT } from './mealPrompt.js';
+import {
+  MEAL_LLM_TEMPERATURE,
+  FALLBACK_ESTIMATE_PROMPT,
+  buildParseSystemPrompt,
+} from './mealPrompt.js';
 
-export { MEAL_PROMPT_VERSION, SYSTEM_PROMPT } from './mealPrompt.js';
+export { MEAL_PROMPT_VERSION } from './mealPrompt.js';
+export { FALLBACK_ESTIMATE_PROMPT as SYSTEM_PROMPT } from './mealPrompt.js';
 
 export const mealEstimateSchema = z.object({
   items: z
@@ -25,6 +30,27 @@ export const mealEstimateSchema = z.object({
 
 export type MealEstimate = z.infer<typeof mealEstimateSchema>;
 
+export const mealParseSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        raw_name: z.string().min(1).max(200),
+        catalog_hint: z.string().max(80).optional().nullable(),
+        quantity: z.coerce.number().positive().max(100000).optional().nullable(),
+        unit: z
+          .string()
+          .max(40)
+          .optional()
+          .nullable()
+          .transform((u) => (u == null || u === '' ? null : u)),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+export type MealParse = z.infer<typeof mealParseSchema>;
+
 export type ParseTextInput = {
   mealType: string;
   text: string;
@@ -40,6 +66,10 @@ export type ParseImageInput = {
 export interface LlmProvider {
   name: string;
   model: string;
+  /** Identifica alimentos/cantidades sin estimar kcal. */
+  parseMealStructure(input: ParseTextInput): Promise<MealParse>;
+  parseMealStructureFromImage(input: ParseImageInput): Promise<MealParse>;
+  /** Estimación completa (fallback fuera de catálogo). */
   parseMealText(input: ParseTextInput): Promise<MealEstimate>;
   parseMealImage(input: ParseImageInput): Promise<MealEstimate>;
 }
@@ -58,10 +88,15 @@ function parseEstimate(raw: unknown): MealEstimate {
   return mealEstimateSchema.parse(raw);
 }
 
+function parseStructure(raw: unknown): MealParse {
+  return mealParseSchema.parse(raw);
+}
+
 async function geminiGenerate(
   apiKey: string,
   model: string,
   parts: Array<Record<string, unknown>>,
+  systemText: string,
 ): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
@@ -73,7 +108,7 @@ async function geminiGenerate(
         temperature: MEAL_LLM_TEMPERATURE,
         responseMimeType: 'application/json',
       },
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemText }] },
     }),
   });
   if (!res.ok) {
@@ -90,20 +125,43 @@ async function geminiGenerate(
 
 function createGemini(env: Env): LlmProvider {
   const model = env.GEMINI_MODEL;
+  const parsePrompt = buildParseSystemPrompt();
   return {
     name: 'gemini',
     model,
+    async parseMealStructure(input) {
+      const prompt = `Tipo de comida: ${input.mealType}\nDescripción del usuario:\n${input.text}`;
+      const text = await geminiGenerate(env.GEMINI_API_KEY, model, [{ text: prompt }], parsePrompt);
+      return parseStructure(extractJson(text));
+    },
+    async parseMealStructureFromImage(input) {
+      const prompt = `Tipo de comida: ${input.mealType}\nContexto: ${input.text ?? 'Identificá los alimentos y porciones de la imagen.'}`;
+      const text = await geminiGenerate(
+        env.GEMINI_API_KEY,
+        model,
+        [{ text: prompt }, { inlineData: { mimeType: input.mimeType, data: input.base64 } }],
+        parsePrompt,
+      );
+      return parseStructure(extractJson(text));
+    },
     async parseMealText(input) {
       const prompt = `Tipo de comida: ${input.mealType}\nDescripción del usuario:\n${input.text}`;
-      const text = await geminiGenerate(env.GEMINI_API_KEY, model, [{ text: prompt }]);
+      const text = await geminiGenerate(
+        env.GEMINI_API_KEY,
+        model,
+        [{ text: prompt }],
+        FALLBACK_ESTIMATE_PROMPT,
+      );
       return parseEstimate(extractJson(text));
     },
     async parseMealImage(input) {
       const prompt = `Tipo de comida: ${input.mealType}\nContexto: ${input.text ?? 'Analizá la imagen de la porción.'}`;
-      const text = await geminiGenerate(env.GEMINI_API_KEY, model, [
-        { text: prompt },
-        { inlineData: { mimeType: input.mimeType, data: input.base64 } },
-      ]);
+      const text = await geminiGenerate(
+        env.GEMINI_API_KEY,
+        model,
+        [{ text: prompt }, { inlineData: { mimeType: input.mimeType, data: input.base64 } }],
+        FALLBACK_ESTIMATE_PROMPT,
+      );
       return parseEstimate(extractJson(text));
     },
   };
@@ -147,12 +205,45 @@ function createOpenAiCompatible(
   model: string,
   supportsVision: boolean,
 ): LlmProvider {
+  const parsePrompt = buildParseSystemPrompt();
   return {
     name,
     model,
+    async parseMealStructure(input) {
+      const text = await openAiChat(apiKey, baseUrl, model, [
+        { role: 'system', content: parsePrompt },
+        {
+          role: 'user',
+          content: `Tipo de comida: ${input.mealType}\nDescripción:\n${input.text}`,
+        },
+      ]);
+      return parseStructure(extractJson(text));
+    },
+    async parseMealStructureFromImage(input) {
+      if (!supportsVision) {
+        throw new Error(`${name} no soporta visión en esta configuración`);
+      }
+      const text = await openAiChat(apiKey, baseUrl, model, [
+        { role: 'system', content: parsePrompt },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Tipo de comida: ${input.mealType}\nContexto: ${input.text ?? 'Identificá alimentos y porciones de la imagen.'}`,
+            },
+            {
+              type: 'image_url',
+              image_url: { url: `data:${input.mimeType};base64,${input.base64}` },
+            },
+          ],
+        },
+      ]);
+      return parseStructure(extractJson(text));
+    },
     async parseMealText(input) {
       const text = await openAiChat(apiKey, baseUrl, model, [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: FALLBACK_ESTIMATE_PROMPT },
         {
           role: 'user',
           content: `Tipo de comida: ${input.mealType}\nDescripción:\n${input.text}`,
@@ -165,7 +256,7 @@ function createOpenAiCompatible(
         throw new Error(`${name} no soporta visión en esta configuración`);
       }
       const text = await openAiChat(apiKey, baseUrl, model, [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: FALLBACK_ESTIMATE_PROMPT },
         {
           role: 'user',
           content: [
