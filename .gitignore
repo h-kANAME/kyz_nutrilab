@@ -17,3 +17,5 @@ apps/api/data/
 apps/api/uploads/
 tracker-plan.html
 apps/api/scripts/out/
+
+.env.dokploy.vapid.local
