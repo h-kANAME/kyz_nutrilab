@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="KYZ">
+  <!-- Squircle 1:1, rx ~22%; K con márgenes simétricos -->
+  <rect width="32" height="32" rx="7" ry="7" fill="#2d2e32"/>
+  <path
+    fill="#15eb80"
+    d="M9 7h4.2v7.1L19.8 7H24l-7.2 9L24 25h-4.2l-6.6-7.1V25H9V7z"
+  />
+</svg>

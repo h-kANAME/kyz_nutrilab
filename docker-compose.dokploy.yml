@@ -1,0 +1,79 @@
+# Dokploy Compose Path: ./docker-compose.dokploy.yml
+# Domain → Service: nutrilabcaddy, Port: 80, HTTPS + Let's Encrypt
+# Host: nutrilab.kyz-apps.site
+
+services:
+  nutrilabcaddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    expose:
+      - "80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    depends_on:
+      - nutrilabweb
+      - nutrilabapi
+    networks:
+      - dokploy-network
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  nutrilabweb:
+    build:
+      context: ./apps/web
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  nutrilabapi:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      NODE_ENV: production
+      API_PORT: "8080"
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      ALLOWED_GOOGLE_EMAILS: ${ALLOWED_GOOGLE_EMAILS}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_NAME: ${COOKIE_NAME:-nutrilab_session}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      SQLITE_PATH: /data/nutrilab.db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - nutrilab_sqlite:/data
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  nutrilab_sqlite:
+
+networks:
+  dokploy-network:
+    external: true
+  internal:
+    driver: bridge

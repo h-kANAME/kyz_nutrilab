@@ -1,0 +1,215 @@
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import type { AuthHelpers } from '../plugins/auth.js';
+import type { Db } from '../db/index.js';
+import type { Env } from '../config/env.js';
+import { listAvailableLlms } from '../services/llm.js';
+import {
+  MEAL_TYPES,
+  addMeal,
+  computeBase,
+  computeTmb,
+  deleteMeal,
+  getDay,
+  getDaysRange,
+  getPlan,
+  getSettings,
+  objetivoDia,
+  formulaBreakdown,
+  planSchema,
+  settingsSchema,
+  updateDay,
+  updateMeal,
+  updatePlan,
+  updateSettings,
+  weightedQuality,
+} from '../services/tracker.js';
+
+const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+
+export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsync {
+  return async (app) => {
+    app.addHook('preHandler', auth.requireAuth);
+
+    app.get('/settings', async (request) => {
+      const settings = getSettings(db, request.user!.id);
+      const plan = getPlan(db, request.user!.id);
+      const dow = new Date().getDay();
+      const todayPlan = plan.find((p) => p.weekday === dow);
+      const keys = todayPlan?.activity_keys ?? [];
+      const formula = formulaBreakdown(settings, keys);
+      return {
+        settings,
+        derived: {
+          tmb: formula.tmb,
+          base: formula.base,
+          floor: settings.minimo,
+          formula,
+          today_activity_keys: keys,
+        },
+        llmProviders: listAvailableLlms(env),
+      };
+    });
+
+    app.put('/settings', async (request, reply) => {
+      const data = settingsSchema.parse(request.body);
+      const providers = listAvailableLlms(env);
+      const selected = providers.find((p) => p.id === data.llm_provider);
+      if (!selected?.configured) {
+        return reply.badRequest(`El proveedor ${data.llm_provider} no tiene API key configurada`);
+      }
+      const settings = updateSettings(db, request.user!.id, data);
+      const plan = getPlan(db, request.user!.id);
+      const dow = new Date().getDay();
+      const todayPlan = plan.find((p) => p.weekday === dow);
+      const keys = todayPlan?.activity_keys ?? [];
+      const formula = formulaBreakdown(settings, keys);
+      return {
+        settings,
+        derived: {
+          tmb: formula.tmb,
+          base: formula.base,
+          floor: settings.minimo,
+          formula,
+          today_activity_keys: keys,
+        },
+        llmProviders: providers,
+      };
+    });
+
+    app.get('/plan', async (request) => {
+      const settings = getSettings(db, request.user!.id);
+      const days = getPlan(db, request.user!.id);
+      return {
+        days: days.map((d) => ({
+          ...d,
+          objetivo: objetivoDia(settings, d.activity_keys),
+        })),
+        derived: {
+          tmb: Math.round(computeTmb(settings)),
+          base: Math.round(computeBase(settings)),
+          floor: settings.minimo,
+        },
+      };
+    });
+
+    app.put('/plan', async (request) => {
+      const { days } = planSchema.parse(request.body);
+      const settings = getSettings(db, request.user!.id);
+      const updated = updatePlan(db, request.user!.id, days);
+      return {
+        days: updated.map((d) => ({
+          ...d,
+          objetivo: objetivoDia(settings, d.activity_keys),
+        })),
+      };
+    });
+
+    app.get('/days', async (request, reply) => {
+      const q = z
+        .object({ from: z.string().regex(dateRe), to: z.string().regex(dateRe) })
+        .parse(request.query);
+      if (q.from > q.to) return reply.badRequest('from must be <= to');
+      const fromD = new Date(q.from);
+      const toD = new Date(q.to);
+      const daysSpan = (toD.getTime() - fromD.getTime()) / 86400000;
+      if (daysSpan > 62) return reply.badRequest('Range too large (max 62 days)');
+
+      const settings = getSettings(db, request.user!.id);
+      const plan = getPlan(db, request.user!.id);
+      const days = getDaysRange(db, request.user!.id, q.from, q.to).map((day) => {
+        const dow = new Date(day.date + 'T12:00:00').getDay();
+        const planDay = plan.find((p) => p.weekday === dow)!;
+        const consumed = day.meals.reduce((s, m) => s + m.kcal, 0);
+        const goal = objetivoDia(settings, planDay.activity_keys);
+        return {
+          ...day,
+          consumed,
+          goal,
+          quality_avg: weightedQuality(day.meals),
+          plan: planDay,
+        };
+      });
+      return { days };
+    });
+
+    app.get('/days/:date', async (request, reply) => {
+      const { date } = z.object({ date: z.string().regex(dateRe) }).parse(request.params);
+      const settings = getSettings(db, request.user!.id);
+      const plan = getPlan(db, request.user!.id);
+      const day = getDay(db, request.user!.id, date);
+      const dow = new Date(date + 'T12:00:00').getDay();
+      const planDay = plan.find((p) => p.weekday === dow)!;
+      const consumed = day.meals.reduce((s, m) => s + m.kcal, 0);
+      return {
+        day: {
+          ...day,
+          consumed,
+          goal: objetivoDia(settings, planDay.activity_keys),
+          quality_avg: weightedQuality(day.meals),
+          plan: planDay,
+        },
+      };
+    });
+
+    app.put('/days/:date', async (request) => {
+      const { date } = z.object({ date: z.string().regex(dateRe) }).parse(request.params);
+      const body = z
+        .object({
+          weight: z.number().positive().max(400).nullable().optional(),
+          training: z.boolean().nullable().optional(),
+          notes: z.string().max(2000).optional(),
+        })
+        .parse(request.body);
+      const day = updateDay(db, request.user!.id, date, body);
+      return { day };
+    });
+
+    app.post('/meals', async (request) => {
+      const body = z
+        .object({
+          date: z.string().regex(dateRe),
+          meal_type: z.enum(MEAL_TYPES),
+          label: z.string().min(1).max(200).optional(),
+          kcal: z.number().positive().max(10000),
+          protein: z.number().min(0).nullable().optional(),
+          carbs: z.number().min(0).nullable().optional(),
+          fat: z.number().min(0).nullable().optional(),
+        })
+        .parse(request.body);
+
+      const day = addMeal(db, request.user!.id, {
+        date: body.date,
+        meal_type: body.meal_type,
+        label: body.label ?? body.meal_type,
+        kcal: body.kcal,
+        protein: body.protein,
+        carbs: body.carbs,
+        fat: body.fat,
+        source: 'manual',
+      });
+      return { day };
+    });
+
+    app.patch('/meals/:id', async (request, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+      const body = z
+        .object({
+          label: z.string().min(1).max(200).optional(),
+          kcal: z.number().positive().max(10000).optional(),
+          meal_type: z.enum(MEAL_TYPES).optional(),
+        })
+        .parse(request.body);
+      const day = updateMeal(db, request.user!.id, id, body);
+      if (!day) return reply.notFound('Meal not found');
+      return { day };
+    });
+
+    app.delete('/meals/:id', async (request, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+      const result = deleteMeal(db, request.user!.id, id);
+      if (!result) return reply.notFound('Meal not found');
+      return { day: result.day };
+    });
+  };
+}

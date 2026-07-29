@@ -1,0 +1,8 @@
+node_modules
+dist
+data
+uploads
+.env
+*.db
+*.log
+.git

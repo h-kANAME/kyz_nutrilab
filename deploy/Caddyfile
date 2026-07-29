@@ -1,0 +1,9 @@
+:80 {
+	encode gzip
+	handle /api* {
+		reverse_proxy nutrilabapi:8080
+	}
+	handle {
+		reverse_proxy nutrilabweb:80
+	}
+}
