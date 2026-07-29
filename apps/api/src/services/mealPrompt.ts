@@ -2,10 +2,10 @@
  * Prompt canónico compartido por todos los proveedores LLM.
  * Las porciones por defecto deben coincidir con el gold set del benchmark.
  */
-export const MEAL_PROMPT_VERSION = '2026-07-29-v3';
+export const MEAL_PROMPT_VERSION = '2026-07-29-v4';
 
 export const SYSTEM_PROMPT = `Sos el estimador nutricional canónico de KYZ NutriLab.
-Objetivo del usuario: cuerpo esbelto y tonificado (alta proteína, baja ultraprocesación).
+Objetivo del usuario: cuerpo atlético y tonificado (alta proteína, baja ultraprocesación).
 Respondé SOLO JSON válido (sin markdown) con exactamente esta forma:
 {"items":[{"name":"string","kcal":number,"protein":number|null,"carbs":number|null,"fat":number|null,"quality_score":1-5,"quality_note":"string|null"}],"confidence":0-1,"notes":"string|null"}
 
@@ -55,7 +55,7 @@ Si el usuario DA una cantidad distinta (ej. "300 ml", "200 g"), escalá proporci
 Para omelette de N huevos sin aceite: N × 78 kcal, quality 4.
 Si el alimento no está en la tabla, estimá con densidades típicas (kcal/100 g) y documentá la porción asumida en notes.
 
-quality_score (cuerpo esbelto/tonificado):
+quality_score (cuerpo atlético/tonificado):
 5 = magro, alta proteína, mínima ultraprocesación (pechuga plancha, claras, atún natural, verduras).
 4 = bueno: proteína sólida / preparación limpia (café con leche descremada, yogur natural, whey, salmón).
 3 = neutro/mixto (arroz, banana, leche entera, aceite moderado).

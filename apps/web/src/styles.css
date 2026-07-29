@@ -547,6 +547,43 @@ button.ghost {
   color: var(--text-muted);
 }
 
+.quality-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.quality-scale-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.quality-scale-score {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.quality-scale-label {
+  font-weight: 600;
+}
+
+.quality-scale-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.quality-scale-body strong {
+  font-weight: 600;
+}
+
 .meal-thumb {
   width: 44px;
   height: 44px;

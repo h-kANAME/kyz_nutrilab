@@ -126,6 +126,45 @@ export const QUALITY_LABELS: Record<number, string> = {
   5: 'Óptima',
 };
 
+/** Fundamentos de quality_score (mismo criterio que mealPrompt del API). */
+export const QUALITY_SCALE: ReadonlyArray<{
+  score: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  criteria: string;
+  examples: string;
+}> = [
+  {
+    score: 5,
+    label: QUALITY_LABELS[5],
+    criteria: 'Magro, alta proteína, mínima ultraprocesación.',
+    examples: 'Pechuga a la plancha, claras, atún natural, verduras.',
+  },
+  {
+    score: 4,
+    label: QUALITY_LABELS[4],
+    criteria: 'Proteína sólida o preparación limpia.',
+    examples: 'Café con leche descremada, yogur natural, whey, salmón.',
+  },
+  {
+    score: 3,
+    label: QUALITY_LABELS[3],
+    criteria: 'Neutro o mixto.',
+    examples: 'Arroz, banana, leche entera, aceite moderado.',
+  },
+  {
+    score: 2,
+    label: QUALITY_LABELS[2],
+    criteria: 'Empanado, fritura, refinados o azúcares.',
+    examples: 'Milanesa frita, pan, pizza, empanada.',
+  },
+  {
+    score: 1,
+    label: QUALITY_LABELS[1],
+    criteria: 'Ultraprocesado, fritura profunda o snacks dulces.',
+    examples: 'Gaseosa azucarada, medialunas, helado, papas fritas.',
+  },
+];
+
 export function qualityTone(score: number | null | undefined): 'poor' | 'mid' | 'good' | 'none' {
   if (score == null) return 'none';
   if (score <= 2) return 'poor';

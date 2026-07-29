@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { ACTIVITY_FACTOR_PRESETS, computeLocalFormula } from '../lib/formula';
-import type { LlmProviderInfo, Settings } from '../lib/types';
+import { QUALITY_SCALE, qualityTone, type LlmProviderInfo, type Settings } from '../lib/types';
 import { AlertModal } from './AlertModal';
 import { NotificationsCard } from './NotificationsCard';
 
@@ -400,6 +400,32 @@ export function AjustesTab({ toast, onTheme }: Props) {
               ))}
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="card-title">Escala nutricional</div>
+        <p className="field-hint">
+          Cuando el asistente estima una comida, la califica de 1 a 5 según densidad proteica y
+          preparación limpia. Las kcal solas no definen el score: misma energía, distinta calidad
+          (pechuga a la plancha ≠ milanesa frita).
+        </p>
+        <div className="quality-scale">
+          {QUALITY_SCALE.map((row) => (
+            <div className="quality-scale-row" key={row.score}>
+              <span className={`quality-scale-score tone-${qualityTone(row.score)}`}>
+                {row.score}
+                <span className="quality-scale-label"> · {row.label}</span>
+              </span>
+              <div className="quality-scale-body">
+                <strong>{row.criteria}</strong>
+                <span className="muted">{row.examples}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="field-hint" style={{ marginTop: 12 }}>
+          El promedio del día pondera por kcal de cada comida con score.
+        </p>
       </div>
 
       <div className="card">
