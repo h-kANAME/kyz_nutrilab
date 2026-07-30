@@ -648,7 +648,8 @@ button.ghost {
   -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--stroke);
   display: flex;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  gap: 2px;
   z-index: 30;
 }
 
@@ -659,13 +660,14 @@ button.ghost {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   color: var(--text-muted);
   font-family: var(--font);
-  font-size: 9px;
-  padding: 6px 2px;
+  font-size: 10px;
+  padding: 6px 4px;
   font-weight: 500;
   cursor: pointer;
+  min-width: 0;
 }
 
 .tabbar button.active {
@@ -1578,47 +1580,50 @@ button.ghost {
   outline-offset: 2px;
 }
 
-/* Progreso (peso) */
-.progreso-panel {
-  padding-bottom: 8px;
-}
-
+/* Progreso (peso) — bloques viven dentro de .screen + .card */
 .progreso-range {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 12px 0 4px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
-.progreso-range label {
-  font-size: 13px;
-  color: var(--text-muted);
+.progreso-goal-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 4px;
 }
 
-.progreso-range input {
+.progreso-goal-row input {
+  flex: 1;
+  min-width: 0;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 16px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: 1px solid var(--stroke);
   background: var(--surface-alt);
   color: inherit;
+}
+
+.progreso-goal-row .primary {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  min-width: 96px;
 }
 
 .progreso-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin: 14px 0 10px;
+  margin: 0 0 14px;
 }
 
 .progreso-kpi {
   background: var(--surface-alt);
   border: 1px solid var(--stroke);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
@@ -1636,24 +1641,14 @@ button.ghost {
 }
 
 .progreso-chart-wrap {
-  background: var(--surface-alt);
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  padding: 10px 6px 4px;
-  margin-bottom: 14px;
-}
-
-.progreso-proj {
-  background: var(--surface-alt);
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  padding: 14px;
+  margin: 0 -4px;
+  padding: 4px 0 0;
 }
 
 .progreso-proj-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
 
 .progreso-proj-grid .muted {
