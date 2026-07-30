@@ -659,11 +659,11 @@ button.ghost {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   color: var(--text-muted);
   font-family: var(--font);
-  font-size: 10px;
-  padding: 6px 0;
+  font-size: 9px;
+  padding: 6px 2px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -1577,3 +1577,95 @@ button.ghost {
   outline: 2px solid var(--teal);
   outline-offset: 2px;
 }
+
+/* Progreso (peso) */
+.progreso-panel {
+  padding-bottom: 8px;
+}
+
+.progreso-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.progreso-range label {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progreso-range input {
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: var(--surface-alt);
+  color: inherit;
+}
+
+.progreso-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.progreso-kpi {
+  background: var(--surface-alt);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.progreso-kpi .muted {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.progreso-kpi strong {
+  font-size: 14px;
+}
+
+.progreso-chart-wrap {
+  background: var(--surface-alt);
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  padding: 10px 6px 4px;
+  margin-bottom: 14px;
+}
+
+.progreso-proj {
+  background: var(--surface-alt);
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.progreso-proj-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.progreso-proj-grid .muted {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 380px) {
+  .progreso-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+

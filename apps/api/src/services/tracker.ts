@@ -11,6 +11,8 @@ export const MEAL_TYPES = [
   'Extra',
 ] as const;
 
+const dateKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+
 export const settingsSchema = z.object({
   edad: z.number().int().min(10).max(120),
   peso: z.number().positive().max(400),
@@ -22,8 +24,16 @@ export const settingsSchema = z.object({
   kcal_gym: z.number().int().min(0).max(3000),
   kcal_kick: z.number().int().min(0).max(3000),
   kcal_walk: z.number().int().min(0).max(3000),
+  kcal_bike: z.number().int().min(0).max(3000).optional().default(250),
   theme: z.enum(['dark', 'light']),
   llm_provider: z.enum(['gemini', 'openai', 'deepseek']),
+  peso_objetivo: z.number().positive().max(400).nullable().optional().default(null),
+  peso_objetivo_desde: z
+    .string()
+    .regex(dateKeyRe)
+    .nullable()
+    .optional()
+    .default(null),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -32,6 +42,38 @@ export type SettingsPublic = Settings & {
   onboarding_done: boolean;
   plan_onboarding_done: boolean;
 };
+
+function todayIsoLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Normaliza meta de peso: si se setea/cambia, fija desde; si se limpia, limpia desde. */
+export function resolveWeightGoalFields(
+  incoming: Settings,
+  previous: { peso_objetivo: number | null; peso_objetivo_desde: string | null },
+): { peso_objetivo: number | null; peso_objetivo_desde: string | null } {
+  const nextGoal = incoming.peso_objetivo ?? null;
+  if (nextGoal == null) {
+    return { peso_objetivo: null, peso_objetivo_desde: null };
+  }
+  const prevGoal = previous.peso_objetivo;
+  const changed = prevGoal == null || Math.abs(prevGoal - nextGoal) > 0.001;
+  if (changed) {
+    return {
+      peso_objetivo: nextGoal,
+      peso_objetivo_desde: incoming.peso_objetivo_desde ?? todayIsoLocal(),
+    };
+  }
+  return {
+    peso_objetivo: nextGoal,
+    peso_objetivo_desde:
+      incoming.peso_objetivo_desde ?? previous.peso_objetivo_desde ?? todayIsoLocal(),
+  };
+}
 
 export const activitySlotSchema = z.object({
   key: z.string().min(1).max(64),
@@ -123,30 +165,43 @@ export function getSettings(db: Db, userId: string): SettingsPublic {
   const row = db
     .prepare(
       `SELECT edad, peso, altura, sexo, deficit, minimo, activity_factor,
-              kcal_gym, kcal_kick, kcal_walk, theme, llm_provider,
+              kcal_gym, kcal_kick, kcal_walk, kcal_bike, theme, llm_provider,
+              peso_objetivo, peso_objetivo_desde,
               onboarding_done, plan_onboarding_done
        FROM user_settings WHERE user_id = ?`,
     )
     .get(userId) as Settings & {
     llm_provider?: string;
     activity_factor?: number;
+    kcal_bike?: number;
+    peso_objetivo?: number | null;
+    peso_objetivo_desde?: string | null;
     onboarding_done?: number;
     plan_onboarding_done?: number;
   };
   return {
     ...row,
     activity_factor: row.activity_factor ?? 1.2,
+    kcal_bike: row.kcal_bike ?? 250,
     llm_provider: (row.llm_provider as Settings['llm_provider']) || 'gemini',
+    peso_objetivo: row.peso_objetivo ?? null,
+    peso_objetivo_desde: row.peso_objetivo_desde ?? null,
     onboarding_done: Boolean(row.onboarding_done),
     plan_onboarding_done: Boolean(row.plan_onboarding_done),
   };
 }
 
 export function updateSettings(db: Db, userId: string, data: Settings): SettingsPublic {
+  const prev = getSettings(db, userId);
+  const goal = resolveWeightGoalFields(data, {
+    peso_objetivo: prev.peso_objetivo ?? null,
+    peso_objetivo_desde: prev.peso_objetivo_desde ?? null,
+  });
   db.prepare(
     `UPDATE user_settings SET
       edad = ?, peso = ?, altura = ?, sexo = ?, deficit = ?, minimo = ?, activity_factor = ?,
-      kcal_gym = ?, kcal_kick = ?, kcal_walk = ?, theme = ?, llm_provider = ?,
+      kcal_gym = ?, kcal_kick = ?, kcal_walk = ?, kcal_bike = ?, theme = ?, llm_provider = ?,
+      peso_objetivo = ?, peso_objetivo_desde = ?,
       updated_at = datetime('now')
      WHERE user_id = ?`,
   ).run(
@@ -160,8 +215,11 @@ export function updateSettings(db: Db, userId: string, data: Settings): Settings
     data.kcal_gym,
     data.kcal_kick,
     data.kcal_walk,
+    data.kcal_bike ?? 250,
     data.theme,
     data.llm_provider,
+    goal.peso_objetivo,
+    goal.peso_objetivo_desde,
     userId,
   );
   syncBuiltinActivityKcals(db, userId, data);
@@ -169,10 +227,16 @@ export function updateSettings(db: Db, userId: string, data: Settings): Settings
 }
 
 export function completeOnboarding(db: Db, userId: string, data: Settings): SettingsPublic {
+  const prev = getSettings(db, userId);
+  const goal = resolveWeightGoalFields(data, {
+    peso_objetivo: prev.peso_objetivo ?? null,
+    peso_objetivo_desde: prev.peso_objetivo_desde ?? null,
+  });
   db.prepare(
     `UPDATE user_settings SET
       edad = ?, peso = ?, altura = ?, sexo = ?, deficit = ?, minimo = ?, activity_factor = ?,
-      kcal_gym = ?, kcal_kick = ?, kcal_walk = ?, theme = ?, llm_provider = ?,
+      kcal_gym = ?, kcal_kick = ?, kcal_walk = ?, kcal_bike = ?, theme = ?, llm_provider = ?,
+      peso_objetivo = ?, peso_objetivo_desde = ?,
       onboarding_done = 1, updated_at = datetime('now')
      WHERE user_id = ?`,
   ).run(
@@ -186,8 +250,11 @@ export function completeOnboarding(db: Db, userId: string, data: Settings): Sett
     data.kcal_gym,
     data.kcal_kick,
     data.kcal_walk,
+    data.kcal_bike ?? 250,
     data.theme,
     data.llm_provider,
+    goal.peso_objetivo,
+    goal.peso_objetivo_desde,
     userId,
   );
   syncBuiltinActivityKcals(db, userId, data);
@@ -235,6 +302,7 @@ export function syncBuiltinActivityKcals(db: Db, userId: string, data: Settings)
     kcal_gym: data.kcal_gym,
     kcal_kick: data.kcal_kick,
     kcal_walk: data.kcal_walk,
+    kcal_bike: data.kcal_bike ?? 250,
   });
   const upsert = db.prepare(
     `UPDATE user_activities SET kcal = ? WHERE user_id = ? AND key = ?`,
@@ -242,6 +310,7 @@ export function syncBuiltinActivityKcals(db: Db, userId: string, data: Settings)
   upsert.run(data.kcal_gym, userId, 'kcal_gym');
   upsert.run(data.kcal_kick, userId, 'kcal_kick');
   upsert.run(data.kcal_walk, userId, 'kcal_walk');
+  upsert.run(data.kcal_bike ?? 250, userId, 'kcal_bike');
 }
 
 export const activityCreateSchema = z.object({
@@ -291,7 +360,12 @@ export function updateActivity(
     userId,
   );
   // Mirror builtins into settings columns used by profile wizard
-  if (row.key === 'kcal_gym' || row.key === 'kcal_kick' || row.key === 'kcal_walk') {
+  if (
+    row.key === 'kcal_gym' ||
+    row.key === 'kcal_kick' ||
+    row.key === 'kcal_walk' ||
+    row.key === 'kcal_bike'
+  ) {
     db.prepare(`UPDATE user_settings SET ${row.key} = ?, updated_at = datetime('now') WHERE user_id = ?`).run(
       kcal,
       userId,
@@ -445,6 +519,7 @@ export function kcalForKeys(s: Settings, keys: string[], kcalByKey?: Map<string,
     if (k === 'kcal_gym') sum += s.kcal_gym;
     if (k === 'kcal_kick') sum += s.kcal_kick;
     if (k === 'kcal_walk') sum += s.kcal_walk;
+    if (k === 'kcal_bike') sum += s.kcal_bike ?? 250;
   }
   return sum;
 }

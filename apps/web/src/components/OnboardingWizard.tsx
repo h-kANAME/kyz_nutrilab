@@ -27,8 +27,11 @@ const EMPTY: Settings = {
   kcal_gym: 300,
   kcal_kick: 400,
   kcal_walk: 150,
+  kcal_bike: 250,
   theme: 'dark',
   llm_provider: 'openai',
+  peso_objetivo: null,
+  peso_objetivo_desde: null,
 };
 
 export function OnboardingWizard({ onDone, toast }: Props) {
@@ -56,8 +59,11 @@ export function OnboardingWizard({ onDone, toast }: Props) {
           kcal_gym: 300,
           kcal_kick: 400,
           kcal_walk: 150,
+          kcal_bike: 250,
           theme: r.settings.theme || 'dark',
           llm_provider: preferred?.id ?? 'openai',
+          peso_objetivo: null,
+          peso_objetivo_desde: null,
         });
         setLoaded(true);
       })
@@ -81,7 +87,12 @@ export function OnboardingWizard({ onDone, toast }: Props) {
     }
     if (s === 1) {
       if (form.activity_factor < 1 || form.activity_factor > 2.5) return 'Elegí un nivel de movimiento';
-      if (form.kcal_gym < 0 || form.kcal_kick < 0 || form.kcal_walk < 0) {
+      if (
+        form.kcal_gym < 0 ||
+        form.kcal_kick < 0 ||
+        form.kcal_walk < 0 ||
+        (form.kcal_bike ?? 0) < 0
+      ) {
         return 'Las kcal de entrenamiento no pueden ser negativas';
       }
     }
@@ -244,11 +255,19 @@ export function OnboardingWizard({ onDone, toast }: Props) {
               />
             </div>
             <div className="field">
-              <label>Caminata 30′</label>
+              <label>Caminata</label>
               <input
                 type="number"
                 value={form.kcal_walk}
                 onChange={(e) => set('kcal_walk', Number(e.target.value))}
+              />
+            </div>
+            <div className="field">
+              <label>Bici</label>
+              <input
+                type="number"
+                value={form.kcal_bike ?? 250}
+                onChange={(e) => set('kcal_bike', Number(e.target.value))}
               />
             </div>
           </>

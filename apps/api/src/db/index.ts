@@ -75,6 +75,7 @@ export const DEFAULT_SETTINGS = {
   kcal_gym: 300,
   kcal_kick: 400,
   kcal_walk: 150,
+  kcal_bike: 250,
   theme: 'dark' as const,
   onboarding_done: 0,
   plan_onboarding_done: 0,
@@ -95,7 +96,12 @@ export const BUILTIN_ACTIVITIES: Array<{
 export function ensureUserActivities(
   db: Db,
   userId: string,
-  kcalOverrides?: { kcal_gym?: number; kcal_kick?: number; kcal_walk?: number },
+  kcalOverrides?: {
+    kcal_gym?: number;
+    kcal_kick?: number;
+    kcal_walk?: number;
+    kcal_bike?: number;
+  },
 ): void {
   const insert = db.prepare(
     `INSERT OR IGNORE INTO user_activities (id, user_id, key, label, kcal, is_builtin, sort_order)
@@ -106,6 +112,7 @@ export function ensureUserActivities(
     if (a.key === 'kcal_gym' && kcalOverrides?.kcal_gym != null) kcal = kcalOverrides.kcal_gym;
     if (a.key === 'kcal_kick' && kcalOverrides?.kcal_kick != null) kcal = kcalOverrides.kcal_kick;
     if (a.key === 'kcal_walk' && kcalOverrides?.kcal_walk != null) kcal = kcalOverrides.kcal_walk;
+    if (a.key === 'kcal_bike' && kcalOverrides?.kcal_bike != null) kcal = kcalOverrides.kcal_bike;
     insert.run(newId(), userId, a.key, a.label, kcal, a.sort_order);
   }
 }
@@ -156,8 +163,10 @@ export function ensureUserDefaults(db: Db, userId: string, defaultLlm = 'gemini'
   }
 
   const row = db
-    .prepare('SELECT kcal_gym, kcal_kick, kcal_walk FROM user_settings WHERE user_id = ?')
-    .get(userId) as { kcal_gym: number; kcal_kick: number; kcal_walk: number } | undefined;
+    .prepare('SELECT kcal_gym, kcal_kick, kcal_walk, kcal_bike FROM user_settings WHERE user_id = ?')
+    .get(userId) as
+    | { kcal_gym: number; kcal_kick: number; kcal_walk: number; kcal_bike?: number }
+    | undefined;
   ensureUserActivities(db, userId, row ?? undefined);
 }
 

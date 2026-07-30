@@ -48,6 +48,7 @@ export function AjustesTab({ toast, onTheme }: Props) {
           ...r.settings,
           activity_factor: r.settings.activity_factor ?? 1.2,
           llm_provider: r.settings.llm_provider || 'gemini',
+          kcal_bike: r.settings.kcal_bike ?? 250,
         });
         setActivities(r.activities ?? []);
         setProviders(r.llmProviders ?? []);
@@ -80,11 +81,19 @@ export function AjustesTab({ toast, onTheme }: Props) {
       delete (payload as { onboarding_done?: boolean }).onboarding_done;
       delete (payload as { plan_onboarding_done?: boolean }).plan_onboarding_done;
       const { settings: next, llmProviders, derived, activities: acts } = await api.putSettings(payload);
+      const customs = activities.filter((a) => !a.is_builtin);
+      for (const c of customs) {
+        await api.updateActivity(c.id, { kcal: c.kcal });
+      }
+      const refreshed = customs.length
+        ? await api.getActivities()
+        : { activities: acts ?? activities };
       setSettings({
         ...next,
         activity_factor: next.activity_factor ?? 1.2,
+        kcal_bike: next.kcal_bike ?? 250,
       });
-      if (acts) setActivities(acts);
+      setActivities(refreshed.activities ?? acts ?? []);
       if (llmProviders) setProviders(llmProviders);
       if (derived.today_activity_keys) setTodayKeys(derived.today_activity_keys);
       onTheme(next.theme);
@@ -328,6 +337,19 @@ export function AjustesTab({ toast, onTheme }: Props) {
             />
           </div>
           <div className="field" style={{ marginTop: 0 }}>
+            <label>Peso objetivo (kg)</label>
+            <input
+              type="number"
+              step="0.1"
+              placeholder="Opcional"
+              value={settings.peso_objetivo ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                set('peso_objetivo', v === '' ? null : Number(v));
+              }}
+            />
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
             <label>Altura (cm)</label>
             <input
               type="number"
@@ -336,6 +358,10 @@ export function AjustesTab({ toast, onTheme }: Props) {
             />
           </div>
         </div>
+        <p className="field-hint" style={{ marginTop: 8 }}>
+          El objetivo alimenta la tab Progreso (gráfico y proyecciones). El peso de perfil sigue
+          usándose para la TMB.
+        </p>
         <div className="field">
           <label>Sexo</label>
           <div className="seg">
@@ -360,7 +386,7 @@ export function AjustesTab({ toast, onTheme }: Props) {
       <div className="card">
         <div className="card-title">Entrenamientos</div>
         <p className="field-hint">
-          Kcal por sesión de las etiquetas base. Bici y actividades custom se gestionan en Plan.
+          Kcal por sesión de cada actividad. Se suman los días que marques en Plan.
         </p>
         <div className="field" style={{ marginTop: 0 }}>
           <label>Gym por sesión</label>
@@ -379,23 +405,38 @@ export function AjustesTab({ toast, onTheme }: Props) {
           />
         </div>
         <div className="field">
-          <label>Caminata 30′</label>
+          <label>Caminata por sesión</label>
           <input
             type="number"
             value={settings.kcal_walk}
             onChange={(e) => set('kcal_walk', Number(e.target.value))}
           />
         </div>
-        {activities.filter((a) => !a.is_builtin || a.key === 'kcal_bike').length > 0 && (
+        <div className="field">
+          <label>Bici por sesión</label>
+          <input
+            type="number"
+            value={settings.kcal_bike ?? 250}
+            onChange={(e) => set('kcal_bike', Number(e.target.value))}
+          />
+        </div>
+        {activities.filter((a) => !a.is_builtin).length > 0 && (
           <div className="activity-edit-list" style={{ marginTop: 12 }}>
             {activities
-              .filter((a) => a.key === 'kcal_bike' || !a.is_builtin)
+              .filter((a) => !a.is_builtin)
               .map((a) => (
-                <div className="activity-edit-row" key={a.id}>
-                  <div className="activity-edit-meta">
-                    <strong>{a.label}</strong>
-                    <span className="muted">{a.kcal} kcal</span>
-                  </div>
+                <div className="field" key={a.id} style={{ marginTop: 8 }}>
+                  <label>{a.label} (custom)</label>
+                  <input
+                    type="number"
+                    value={a.kcal}
+                    onChange={(e) => {
+                      const kcal = Number(e.target.value);
+                      setActivities((list) =>
+                        list.map((x) => (x.id === a.id ? { ...x, kcal } : x)),
+                      );
+                    }}
+                  />
                 </div>
               ))}
           </div>

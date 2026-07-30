@@ -111,6 +111,10 @@ export const api = {
     request<{ day: import('./types').DayLog }>(`/api/days/${date}`),
   getDays: (from: string, to: string) =>
     request<{ days: import('./types').DayLog[] }>(`/api/days?from=${from}&to=${to}`),
+  getWeightProgress: (from: string, to: string) =>
+    request<import('./types').WeightProgress>(
+      `/api/progress/weight?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
   putDay: (
     date: string,
     body: { weight?: number | null; training?: boolean | null; notes?: string },

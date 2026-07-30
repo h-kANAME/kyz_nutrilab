@@ -33,6 +33,12 @@ import {
   updateSettings,
   weightedQuality,
 } from '../services/tracker.js';
+import {
+  PROGRESS_MAX_DAYS,
+  daysSpanInclusive,
+  getWeightProgress,
+  progressWeightQuerySchema,
+} from '../services/progressWeight.js';
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -207,6 +213,17 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
       }
     });
 
+    app.get('/progress/weight', async (request, reply) => {
+      const q = progressWeightQuerySchema.parse(request.query);
+      if (q.from > q.to) return reply.badRequest('from must be <= to');
+      const span = daysSpanInclusive(q.from, q.to);
+      if (span < 1) return reply.badRequest('Invalid date range');
+      if (span > PROGRESS_MAX_DAYS) {
+        return reply.badRequest(`Range too large (max ${PROGRESS_MAX_DAYS} days)`);
+      }
+      return getWeightProgress(db, request.user!.id, q.from, q.to);
+    });
+
     app.get('/days', async (request, reply) => {
       const q = z
         .object({ from: z.string().regex(dateRe), to: z.string().regex(dateRe) })
@@ -215,7 +232,7 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
       const fromD = new Date(q.from);
       const toD = new Date(q.to);
       const daysSpan = (toD.getTime() - fromD.getTime()) / 86400000;
-      if (daysSpan > 62) return reply.badRequest('Range too large (max 62 days)');
+      if (daysSpan > 120) return reply.badRequest('Range too large (max 120 days)');
 
       const settings = getSettings(db, request.user!.id);
       const plan = getPlan(db, request.user!.id);

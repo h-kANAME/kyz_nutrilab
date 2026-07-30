@@ -6,11 +6,12 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { PlanWizard } from './components/PlanWizard';
 import { HoyTab } from './components/HoyTab';
 import { SemanaTab } from './components/SemanaTab';
+import { ProgresoTab } from './components/ProgresoTab';
 import { PlanTab } from './components/PlanTab';
 import { AjustesTab } from './components/AjustesTab';
 import { DIAS_FULL, todayKey, type Settings } from './lib/types';
 
-type Tab = 'hoy' | 'semana' | 'plan' | 'ajustes';
+type Tab = 'hoy' | 'semana' | 'progreso' | 'plan' | 'ajustes';
 
 function applyTheme(theme: 'dark' | 'light') {
   document.documentElement.setAttribute('data-theme', theme);
@@ -97,6 +98,7 @@ export function App() {
   const titles: Record<Tab, { eyebrow: string; title: string }> = {
     hoy: { eyebrow: 'Hoy', title: DIAS_FULL[dow] },
     semana: { eyebrow: 'Resumen', title: 'Semana' },
+    progreso: { eyebrow: 'Peso', title: 'Progreso' },
     plan: { eyebrow: 'Rutina', title: 'Plan' },
     ajustes: { eyebrow: 'Cuenta', title: 'Ajustes' },
   };
@@ -128,6 +130,7 @@ export function App() {
 
       {tab === 'hoy' && <HoyTab toast={toast} />}
       {tab === 'semana' && <SemanaTab toast={toast} />}
+      {tab === 'progreso' && <ProgresoTab toast={toast} />}
       {tab === 'plan' && <PlanTab toast={toast} />}
       {tab === 'ajustes' && <AjustesTab toast={toast} onTheme={onTheme} />}
 
@@ -142,6 +145,11 @@ export function App() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="4" width="18" height="17" rx="2" />
             <path d="M3 9h18M8 3v4M16 3v4" />
+          </svg>
+        </TabBtn>
+        <TabBtn active={tab === 'progreso'} onClick={() => setTab('progreso')} label="Progreso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 19h16M5 16l4-5 3 3 5-7 2 2" />
           </svg>
         </TabBtn>
         <TabBtn active={tab === 'plan'} onClick={() => setTab('plan')} label="Plan">

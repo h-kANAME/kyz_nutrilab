@@ -27,6 +27,7 @@ export function computeLocalFormula(
     else if (k === 'kcal_gym') activity += s.kcal_gym;
     else if (k === 'kcal_kick') activity += s.kcal_kick;
     else if (k === 'kcal_walk') activity += s.kcal_walk;
+    else if (k === 'kcal_bike') activity += s.kcal_bike ?? 250;
   }
   const beforeFloor = Math.round(base + activity - s.deficit);
   const goal = Math.max(s.minimo, beforeFloor);

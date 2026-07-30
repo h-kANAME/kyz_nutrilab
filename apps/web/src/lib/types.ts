@@ -16,10 +16,39 @@ export type Settings = {
   kcal_gym: number;
   kcal_kick: number;
   kcal_walk: number;
+  kcal_bike?: number;
   theme: 'dark' | 'light';
   llm_provider: 'gemini' | 'openai' | 'deepseek';
+  peso_objetivo?: number | null;
+  peso_objetivo_desde?: string | null;
   onboarding_done?: boolean;
   plan_onboarding_done?: boolean;
+};
+
+export type WeightPoint = { date: string; weight: number };
+
+export type WeightProgress = {
+  from: string;
+  to: string;
+  points: WeightPoint[];
+  peso_objetivo: number | null;
+  peso_objetivo_desde: string | null;
+  peso_actual: number | null;
+  stats: {
+    start_weight: number | null;
+    end_weight: number | null;
+    delta_kg: number | null;
+    gap_to_goal_kg: number | null;
+    n: number;
+  };
+  projection: {
+    plan_kg_per_week: number;
+    observed_kg_per_week: number | null;
+    eta_plan_days: number | null;
+    eta_observed_days: number | null;
+    eta_plan_date: string | null;
+    eta_observed_date: string | null;
+  };
 };
 
 export type UserActivity = {
