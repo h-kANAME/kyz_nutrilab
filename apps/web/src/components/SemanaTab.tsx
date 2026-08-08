@@ -47,7 +47,8 @@ export function SemanaTab({ toast }: Props) {
     try {
       const { days: next } = await api.getDays(rangeFrom, rangeTo);
       setDays(next);
-      setOpenDays(new Set(next.filter((d) => d.meals.length > 0).map((d) => d.date)));
+      // Todos colapsados; el usuario despliega el día que quiera ver.
+      setOpenDays(new Set());
     } catch (e) {
       toast((e as Error).message);
     }
