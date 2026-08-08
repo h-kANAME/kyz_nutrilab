@@ -4,7 +4,7 @@ import { catalogHintListForPrompt } from './foodCatalog.js';
  * Prompt canónico compartido por todos los proveedores LLM.
  * Las porciones/kcal viven en food-catalog.json; el LLM solo identifica ítems.
  */
-export const MEAL_PROMPT_VERSION = '2026-07-29-v5-parse';
+export const MEAL_PROMPT_VERSION = '2026-08-08-v6-parse';
 
 /** Prompt de identificación (sin kcal): el cálculo lo hace el catálogo. */
 export function buildParseSystemPrompt(): string {
@@ -17,12 +17,15 @@ Respondé SOLO JSON válido (sin markdown) con exactamente esta forma:
 
 REGLAS DURAS:
 1) Un ítem por alimento/plato descrito. No inventes extras no mencionados.
-2) Si el texto nombra varios alimentos, devolvé un item por cada uno.
+2) Si el texto nombra varios alimentos, devolvé un item por cada uno (ej. tostadas de arroz + queso untable → 2 items).
 3) quantity/unit: solo si el usuario indica cantidad explícita (ej. "300 ml", "200 g", "2 huevos"). Si no indica, quantity=null y unit=null.
-4) catalog_hint: si el alimento coincide con el catálogo abajo, poné el id exacto. Si no estás seguro, null.
-5) raw_name: nombre corto en español del alimento mencionado.
-6) Para omelette de N huevos: catalog_hint="omelette", quantity=N, unit="unit".
-7) Unidades: g (gramos), ml, unit (unidades/fetas/scoops/huevos), serving (plato/porción genérica).
+4) catalog_hint: solo si estás seguro del id del catálogo abajo. Si hay duda, null.
+5) raw_name: preservá la FORMA del producto tal como la nombró el usuario. NO colapses un derivado al ingrediente base.
+   - "tostadas de arroz" / "galletas de arroz" → raw_name con "tostadas/galletas de arroz", NUNCA "arroz blanco" ni catalog_hint=arroz_blanco.
+   - "queso untable light" ≠ "queso" genérico.
+6) NUNCA uses el id de un ingrediente base cuando el usuario nombra un producto derivado (tostada, galleta, snack, barrita).
+7) Para omelette de N huevos: catalog_hint="omelette", quantity=N, unit="unit".
+8) Unidades: g (gramos), ml, unit (unidades/fetas/scoops/huevos), serving (plato/porción genérica).
 
 CATÁLOGO (ids válidos para catalog_hint):
 ${catalogList}`;
@@ -36,10 +39,11 @@ Respondé SOLO JSON válido (sin markdown) con exactamente esta forma:
 
 REGLAS:
 1) Un ítem por alimento. No inventes extras.
-2) Si no hay cantidad, asumí una porción típica argentina y documentala en notes.
-3) Redondeá kcal al entero. Macros en g enteros o un decimal.
-4) quality_score 1-5: 5=magro/alta proteína/limpia; 4=bueno; 3=neutro; 2=fritura/refinado; 1=ultraprocesado.
-5) Estimá con densidades típicas (kcal/100 g). Un solo número de kcal (sin rangos).
+2) Preservá el nombre del producto (tostadas de arroz ≠ arroz cocido).
+3) Si no hay cantidad, asumí una porción típica argentina y documentala en notes.
+4) Redondeá kcal al entero. Macros en g enteros o un decimal.
+5) quality_score 1-5: 5=magro/alta proteína/limpia; 4=bueno; 3=neutro; 2=fritura/refinado; 1=ultraprocesado.
+6) Estimá con densidades típicas (kcal/100 g). Un solo número de kcal (sin rangos).
 confidence: 0.55–0.75.`;
 
 /** Temperatura fija para máxima consistencia entre proveedores. */

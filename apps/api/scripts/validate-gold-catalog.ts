@@ -16,6 +16,8 @@ type GoldCase = {
   gold_kcal: number;
   tol_kcal: number;
   gold_quality: number;
+  expect_catalog_id?: string;
+  forbid_catalog_id?: string;
 };
 
 const cases = JSON.parse(
@@ -34,14 +36,23 @@ for (const c of cases) {
   }
   const kcalOk = Math.abs(r.kcal - c.gold_kcal) <= c.tol_kcal;
   const qOk = r.quality_score === c.gold_quality;
-  if (kcalOk && qOk) {
+  const expectOk = !c.expect_catalog_id || r.catalog_id === c.expect_catalog_id;
+  const forbidOk = !c.forbid_catalog_id || r.catalog_id !== c.forbid_catalog_id;
+  if (kcalOk && qOk && expectOk && forbidOk) {
     ok++;
-    console.log(`OK    ${c.id}: ${r.kcal} kcal q${r.quality_score}`);
+    console.log(`OK    ${c.id}: ${r.kcal} kcal q${r.quality_score} (${r.catalog_id})`);
   } else {
     fail++;
-    console.log(
-      `FAIL  ${c.id}: got ${r.kcal}/q${r.quality_score} want ${c.gold_kcal}/q${c.gold_quality} ("${c.text}")`,
-    );
+    const bits = [
+      !kcalOk || !qOk
+        ? `got ${r.kcal}/q${r.quality_score} want ${c.gold_kcal}/q${c.gold_quality}`
+        : null,
+      !expectOk ? `catalog ${r.catalog_id} want ${c.expect_catalog_id}` : null,
+      !forbidOk ? `forbidden catalog ${c.forbid_catalog_id}` : null,
+    ]
+      .filter(Boolean)
+      .join('; ');
+    console.log(`FAIL  ${c.id}: ${bits} ("${c.text}")`);
   }
 }
 

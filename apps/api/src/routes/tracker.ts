@@ -296,6 +296,11 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
           protein: z.number().min(0).nullable().optional(),
           carbs: z.number().min(0).nullable().optional(),
           fat: z.number().min(0).nullable().optional(),
+          quality_score: z.number().int().min(1).max(5).nullable().optional(),
+          quality_note: z.string().max(240).nullable().optional(),
+          source: z.enum(['manual', 'ai_text', 'ai_image']).optional(),
+          raw_prompt: z.string().max(4000).nullable().optional(),
+          image_path: z.string().max(500).nullable().optional(),
         })
         .parse(request.body);
 
@@ -307,7 +312,11 @@ export function trackerRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPlugi
         protein: body.protein,
         carbs: body.carbs,
         fat: body.fat,
-        source: 'manual',
+        quality_score: body.quality_score,
+        quality_note: body.quality_note,
+        source: body.source ?? 'manual',
+        raw_prompt: body.raw_prompt,
+        image_path: body.image_path,
       });
       return { day };
     });

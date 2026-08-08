@@ -1113,6 +1113,39 @@ button.ghost {
   animation: sheet-up 0.28s ease;
 }
 
+.ai-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-review-item {
+  padding: 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--surface-alt, transparent);
+}
+
+.ai-review-item.warn {
+  border-color: color-mix(in srgb, var(--amber, #c9a227) 70%, var(--stroke));
+}
+
+.ai-review-item.dimmed {
+  opacity: 0.55;
+}
+
+.ai-review-keep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
 @keyframes sheet-up {
   from {
     transform: translateY(40px);

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AuthHelpers } from '../plugins/auth.js';
 import type { Db } from '../db/index.js';
 import type { Env } from '../config/env.js';
-import { MEAL_TYPES, addMeal, getSettings } from '../services/tracker.js';
+import { MEAL_TYPES, getSettings } from '../services/tracker.js';
 import {
   createLlmProvider,
   listAvailableLlms,
@@ -73,25 +73,20 @@ export function aiRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsyn
             text: body.text,
           });
 
-          let day = null;
-          for (const item of estimate.items) {
-            day = addMeal(db, request.user!.id, {
+          // No persiste: la UI confirma y llama POST /meals.
+          db.prepare(`UPDATE ai_jobs SET status = ? WHERE id = ?`).run('ok', jobId);
+          return {
+            estimate,
+            day: null,
+            provider: provider.name,
+            model: provider.model,
+            pendingSave: {
               date: body.date,
               meal_type: body.mealType,
-              label: item.name,
-              kcal: Math.round(item.kcal),
-              protein: item.protein ?? null,
-              carbs: item.carbs ?? null,
-              fat: item.fat ?? null,
-              quality_score: item.quality_score,
-              quality_note: item.quality_note ?? null,
-              source: 'ai_text',
+              source: 'ai_text' as const,
               raw_prompt: body.text,
-            });
-          }
-
-          db.prepare(`UPDATE ai_jobs SET status = ? WHERE id = ?`).run('ok', jobId);
-          return { estimate, day, provider: provider.name, model: provider.model };
+            },
+          };
         } catch (e) {
           const msg = publicAiError(e);
           request.log.warn({ err: e }, 'AI parse-meal failed');
@@ -166,31 +161,22 @@ export function aiRoutes(auth: AuthHelpers, db: Db, env: Env): FastifyPluginAsyn
             base64: buffer.toString('base64'),
           });
 
-          let day = null;
-          for (const item of estimate.items) {
-            day = addMeal(db, request.user!.id, {
-              date,
-              meal_type: mealType,
-              label: item.name,
-              kcal: Math.round(item.kcal),
-              protein: item.protein ?? null,
-              carbs: item.carbs ?? null,
-              fat: item.fat ?? null,
-              quality_score: item.quality_score,
-              quality_note: item.quality_note ?? null,
-              source: 'ai_image',
-              raw_prompt: text || null,
-              image_path: relPath,
-            });
-          }
-
+          // No persiste comidas: la UI confirma. La foto ya quedó en disco.
           db.prepare(`UPDATE ai_jobs SET status = ? WHERE id = ?`).run('ok', jobId);
           return {
             estimate,
-            day,
+            day: null,
             imageUrl: `/api/uploads/${relPath}`,
+            image_path: relPath,
             provider: provider.name,
             model: provider.model,
+            pendingSave: {
+              date,
+              meal_type: mealType,
+              source: 'ai_image' as const,
+              raw_prompt: text || null,
+              image_path: relPath,
+            },
           };
         } catch (e) {
           const msg = publicAiError(e);

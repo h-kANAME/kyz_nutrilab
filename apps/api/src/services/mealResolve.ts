@@ -14,8 +14,10 @@ export type ParsedMealItem = {
 };
 
 export type ResolvedItem = MealEstimate['items'][number] & {
-  source: 'catalog' | 'unresolved';
+  source: 'catalog';
   catalog_id?: string;
+  match_score?: number;
+  raw_name?: string;
   macro_coherence_ok: boolean;
 };
 
@@ -108,13 +110,17 @@ function macroCoherenceOk(
   return Math.abs(kcal - expected) / Math.max(kcal, expected) <= 0.25;
 }
 
-function applyScale(food: CatalogFood, qty: number): ResolvedItem {
+function applyScale(
+  food: CatalogFood,
+  qty: number,
+  meta?: { match_score?: number; raw_name?: string; displayName?: string },
+): ResolvedItem {
   const kcal = Math.round(scaleValue(food.kcal, qty, food.defaultQty) ?? food.kcal);
   const protein = roundMacro(scaleValue(food.protein, qty, food.defaultQty));
   const carbs = roundMacro(scaleValue(food.carbs, qty, food.defaultQty));
   const fat = roundMacro(scaleValue(food.fat, qty, food.defaultQty));
   return {
-    name: food.displayName,
+    name: meta?.displayName ?? food.displayName,
     kcal,
     protein,
     carbs,
@@ -123,6 +129,8 @@ function applyScale(food: CatalogFood, qty: number): ResolvedItem {
     quality_note: food.quality_note,
     source: 'catalog',
     catalog_id: food.id,
+    match_score: meta?.match_score,
+    raw_name: meta?.raw_name,
     macro_coherence_ok: macroCoherenceOk(kcal, protein, carbs, fat),
   };
 }
@@ -148,6 +156,11 @@ export function resolveParsedItem(item: ParsedMealItem): ResolvedItem | null {
         ? fromText.quantity
         : food.defaultQty;
 
+  const meta = {
+    match_score: match.score,
+    raw_name: item.raw_name,
+  };
+
   // Omelette / derivados: escalar desde alimento base (huevo)
   if (food.scaleBaseId) {
     const base = getCatalogFoodById(food.scaleBaseId);
@@ -165,6 +178,7 @@ export function resolveParsedItem(item: ParsedMealItem): ResolvedItem | null {
           id: match.food.id,
         },
         qty,
+        { ...meta, displayName },
       );
     }
   }
@@ -174,7 +188,7 @@ export function resolveParsedItem(item: ParsedMealItem): ResolvedItem | null {
     qty = food.defaultQty;
   }
 
-  return applyScale(food, qty);
+  return applyScale(food, qty, meta);
 }
 
 export type ResolveBatchResult = {
@@ -222,8 +236,11 @@ export function buildMealEstimate(
   opts: { catalogConfidence: number; notes: string | null; hadFallback: boolean },
 ): MealEstimate {
   const items = [
-    ...catalogItems.map(({ source: _s, catalog_id: _c, macro_coherence_ok: _m, ...rest }) => rest),
-    ...fallbackItems,
+    ...catalogItems.map(({ macro_coherence_ok: _m, ...rest }) => rest),
+    ...fallbackItems.map((f) => ({
+      ...f,
+      source: f.source ?? ('llm' as const),
+    })),
   ];
 
   const confidence = opts.hadFallback

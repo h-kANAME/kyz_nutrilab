@@ -12,6 +12,7 @@
     "test:meal-resolve": "tsx scripts/test-meal-resolve.ts",
     "test:progress-weight": "tsx scripts/test-progress-weight.ts",
     "validate:gold-catalog": "tsx scripts/validate-gold-catalog.ts",
+    "audit:meal-labels": "tsx scripts/audit-meal-labels.ts",
     "job:notifications": "tsx src/jobs/runNotifications.ts"
   },
   "dependencies": {

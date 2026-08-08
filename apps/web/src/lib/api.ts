@@ -128,6 +128,14 @@ export const api = {
     meal_type: string;
     label?: string;
     kcal: number;
+    protein?: number | null;
+    carbs?: number | null;
+    fat?: number | null;
+    quality_score?: number | null;
+    quality_note?: string | null;
+    source?: 'manual' | 'ai_text' | 'ai_image';
+    raw_prompt?: string | null;
+    image_path?: string | null;
   }) =>
     request<{ day: import('./types').DayLog }>('/api/meals', {
       method: 'POST',
@@ -136,12 +144,33 @@ export const api = {
   deleteMeal: (id: string) =>
     request<{ day: import('./types').DayLog }>(`/api/meals/${id}`, { method: 'DELETE' }),
   parseMeal: (body: { mealType: string; text: string; date: string }) =>
-    request<{ day: import('./types').DayLog; estimate: unknown }>('/api/ai/parse-meal', {
+    request<{
+      day: null;
+      estimate: unknown;
+      pendingSave: {
+        date: string;
+        meal_type: string;
+        source: 'ai_text';
+        raw_prompt?: string | null;
+      };
+    }>('/api/ai/parse-meal', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   parseMealImage: (form: FormData) =>
-    request<{ day: import('./types').DayLog; estimate: unknown }>('/api/ai/parse-meal-image', {
+    request<{
+      day: null;
+      estimate: unknown;
+      imageUrl?: string;
+      image_path?: string;
+      pendingSave: {
+        date: string;
+        meal_type: string;
+        source: 'ai_image';
+        raw_prompt?: string | null;
+        image_path?: string | null;
+      };
+    }>('/api/ai/parse-meal-image', {
       method: 'POST',
       body: form,
       headers: {},

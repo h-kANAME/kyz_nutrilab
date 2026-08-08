@@ -24,11 +24,48 @@ test('match café con leche descremada', () => {
   assert.equal(m!.food.id, 'cafe_leche_desc');
 });
 
-test('match por catalog_hint', () => {
-  const m = matchCatalogFood('lo que sea', 'pechuga_plancha');
+test('match por catalog_hint plausible', () => {
+  const m = matchCatalogFood('Pechuga de pollo a la plancha', 'pechuga_plancha');
   assert.ok(m);
   assert.equal(m!.food.id, 'pechuga_plancha');
   assert.equal(m!.via, 'id');
+});
+
+test('catalog_hint irrelevante se ignora', () => {
+  const m = matchCatalogFood('lo que sea xyz desconocido', 'pechuga_plancha');
+  assert.equal(m, null);
+});
+
+test('tostadas de arroz ≠ arroz_blanco', () => {
+  const m = matchCatalogFood('Tostadas de arroz con queso untable');
+  assert.ok(m);
+  assert.notEqual(m!.food.id, 'arroz_blanco');
+  assert.equal(m!.food.id, 'tostadas_queso_untable');
+});
+
+test('queso solo no matchea untable light', () => {
+  const m = matchCatalogFood('queso');
+  assert.ok(!m || m.food.id !== 'queso_untable_light');
+});
+
+test('hint arroz_blanco con tostadas se ignora', () => {
+  const m = matchCatalogFood('Tostadas de arroz', 'arroz_blanco');
+  assert.ok(m);
+  assert.equal(m!.food.id, 'tostadas_de_arroz');
+  assert.equal(m!.via, 'alias');
+});
+
+test('arroz blanco cocido sigue matcheando', () => {
+  const m = matchCatalogFood('Arroz blanco cocido');
+  assert.ok(m);
+  assert.equal(m!.food.id, 'arroz_blanco');
+});
+
+test('queso untable light', () => {
+  const r = resolveParsedItem({ raw_name: 'Queso untable light' });
+  assert.ok(r);
+  assert.equal(r!.catalog_id, 'queso_untable_light');
+  assert.equal(r!.kcal, 70);
 });
 
 test('café default 55 kcal', () => {

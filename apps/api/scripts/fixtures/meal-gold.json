@@ -254,5 +254,98 @@
     "gold_kcal": 390,
     "tol_kcal": 40,
     "gold_quality": 3
+  },
+  {
+    "id": "hist-tostadas-arroz",
+    "mealType": "Merienda",
+    "text": "Tostadas de arroz",
+    "gold_kcal": 105,
+    "tol_kcal": 15,
+    "gold_quality": 3,
+    "expect_catalog_id": "tostadas_de_arroz",
+    "forbid_catalog_id": "arroz_blanco"
+  },
+  {
+    "id": "hist-tostadas-con-queso-no-arroz",
+    "mealType": "Merienda",
+    "text": "Tostadas de arroz con queso untable",
+    "gold_kcal": 205,
+    "tol_kcal": 30,
+    "gold_quality": 3,
+    "expect_catalog_id": "tostadas_queso_untable",
+    "forbid_catalog_id": "arroz_blanco"
+  },
+  {
+    "id": "hist-tostadas-queso-untar-light",
+    "mealType": "Merienda",
+    "text": "tostadas con queso de untar light",
+    "gold_kcal": 175,
+    "tol_kcal": 25,
+    "gold_quality": 4,
+    "expect_catalog_id": "tostadas_queso_untable_light",
+    "forbid_catalog_id": "arroz_blanco"
+  },
+  {
+    "id": "hist-queso-untable-light",
+    "mealType": "Merienda",
+    "text": "Queso untable light",
+    "gold_kcal": 70,
+    "tol_kcal": 15,
+    "gold_quality": 4,
+    "expect_catalog_id": "queso_untable_light"
+  },
+  {
+    "id": "hist-queso-untable",
+    "mealType": "Desayuno",
+    "text": "Queso untable",
+    "gold_kcal": 100,
+    "tol_kcal": 20,
+    "gold_quality": 3,
+    "expect_catalog_id": "queso_untable"
+  },
+  {
+    "id": "hist-queso-untar-light",
+    "mealType": "Merienda",
+    "text": "queso de untar light",
+    "gold_kcal": 70,
+    "tol_kcal": 15,
+    "gold_quality": 4,
+    "expect_catalog_id": "queso_untable_light"
+  },
+  {
+    "id": "hist-arroz-guarnicion",
+    "mealType": "Almuerzo",
+    "text": "Arroz blanco cocido",
+    "gold_kcal": 195,
+    "tol_kcal": 25,
+    "gold_quality": 3,
+    "expect_catalog_id": "arroz_blanco"
+  },
+  {
+    "id": "hist-pata-muslo",
+    "mealType": "Almuerzo",
+    "text": "pata y muslo de pollo",
+    "gold_kcal": 250,
+    "tol_kcal": 30,
+    "gold_quality": 3,
+    "expect_catalog_id": "pata_muslo_pollo"
+  },
+  {
+    "id": "hist-pan-lactal",
+    "mealType": "Desayuno",
+    "text": "Pan lactal blanco (2 fetas)",
+    "gold_kcal": 140,
+    "tol_kcal": 20,
+    "gold_quality": 2,
+    "expect_catalog_id": "pan_lactal"
+  },
+  {
+    "id": "hist-mani-pelado",
+    "mealType": "Merienda",
+    "text": "maní pelado",
+    "gold_kcal": 175,
+    "tol_kcal": 25,
+    "gold_quality": 3,
+    "expect_catalog_id": "mani_pelado"
   }
 ]

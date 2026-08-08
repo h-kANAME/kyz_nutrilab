@@ -20,6 +20,11 @@ export const mealEstimateSchema = z.object({
         fat: z.coerce.number().min(0).max(1000).optional().nullable(),
         quality_score: z.coerce.number().int().min(1).max(5),
         quality_note: z.string().max(240).optional().nullable(),
+        /** Origen del ítem (catálogo vs fallback LLM). */
+        source: z.enum(['catalog', 'llm']).optional(),
+        catalog_id: z.string().max(80).optional().nullable(),
+        raw_name: z.string().max(200).optional().nullable(),
+        match_score: z.coerce.number().min(0).max(100).optional().nullable(),
       }),
     )
     .min(1)
